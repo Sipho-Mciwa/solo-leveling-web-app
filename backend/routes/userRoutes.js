@@ -29,11 +29,14 @@ router.get('/me', authenticate, async (req, res) => {
 
     // First login — create profile
     const newUser = {
-      email: req.query.email || '',
-      xp: 0,
-      level: 1,
-      streakCount: 0,
+      email:          req.query.email || '',
+      xp:             0,
+      level:          1,
+      streakCount:    0,
       lastActiveDate: null,
+      rank:           'E',
+      titles:         ['E Rank Hunter'],
+      activeTitle:    'E Rank Hunter',
     };
     await userRef.set(newUser);
     res.json({ id: req.userId, ...newUser });

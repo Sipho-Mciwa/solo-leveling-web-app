@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProgressBar from './ProgressBar';
+import RankBadge from './RankBadge';
 
 const NAV_TABS = [
   { label: 'Today', href: '/' },
@@ -18,20 +19,28 @@ export default function Header() {
 
   if (!userProfile) return null;
 
-  const { xp, level, streakCount } = userProfile;
+  const { xp, level, streakCount, rank, activeTitle } = userProfile;
   const xpNeeded = xpRequiredForLevel(level);
 
   return (
     <header className="border-b border-border">
       {/* Stats row */}
       <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
-        <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
-          Solo Leveling
-        </h1>
+        <div>
+          <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
+            Solo Leveling
+          </h1>
+          {activeTitle && (
+            <p className="text-[10px] text-muted italic mt-0.5">"{activeTitle}"</p>
+          )}
+        </div>
 
         <div className="flex-1 max-w-xs">
           <div className="flex justify-between text-xs text-muted mb-1">
-            <span>Level {level}</span>
+            <span className="flex items-center gap-1.5">
+              Level {level}
+              {rank && <RankBadge rank={rank} size="sm" />}
+            </span>
             <span>{xp} / {xpNeeded} XP</span>
           </div>
           <ProgressBar current={xp} target={xpNeeded} color="bg-accent" />

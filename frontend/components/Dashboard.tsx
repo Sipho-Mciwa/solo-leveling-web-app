@@ -1,16 +1,42 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuests } from '@/context/QuestContext';
+import { useAuth } from '@/context/AuthContext';
+import { fetchActivePenalty, fetchCurrentBoss, PenaltyQuest, BossQuest } from '@/lib/api';
 import QuestCard from './QuestCard';
+import PenaltyAlert from './PenaltyAlert';
+import BossQuestCard from './BossQuestCard';
+import RewardsPanel from './RewardsPanel';
 
 export default function Dashboard() {
   const { quests, loading, error } = useQuests();
+  const { firebaseUser } = useAuth();
+
+  const [penalty, setPenalty] = useState<PenaltyQuest | null>(null);
+  const [boss, setBoss]       = useState<BossQuest | null>(null);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+    fetchActivePenalty().then((r) => setPenalty(r.penalty)).catch(() => {});
+    fetchCurrentBoss().then((r) => setBoss(r.boss)).catch(() => {});
+  }, [firebaseUser]);
 
   const completed = quests.filter((q) => q.completed).length;
   const total = quests.length;
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-8">
+      {/* Penalty alert — shown above everything else */}
+      {penalty && !penalty.completed && (
+        <PenaltyAlert penalty={penalty} onUpdate={setPenalty} />
+      )}
+
+      {/* Boss quest */}
+      {boss && (
+        <BossQuestCard boss={boss} onUpdate={setBoss} />
+      )}
+
       {/* Date + summary */}
       <div className="mb-8">
         <p className="text-muted text-xs tracking-wide uppercase">
@@ -65,6 +91,9 @@ export default function Dashboard() {
           <p className="text-muted text-sm mt-1">Come back tomorrow.</p>
         </div>
       )}
+
+      {/* Rank & titles */}
+      <RewardsPanel />
     </main>
   );
 }

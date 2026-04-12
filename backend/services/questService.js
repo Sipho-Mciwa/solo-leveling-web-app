@@ -2,6 +2,7 @@ const { db } = require('../config/firebase');
 const { addXp } = require('./xpService');
 const { updateStreak } = require('./streakService');
 const { applyDifficultyScaling } = require('./difficultyService');
+const { updateUserRank } = require('./rankService');
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -151,16 +152,20 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
   let xpResult = null;
   let streakResult = null;
 
+  let rankResult = null;
+
   if (isComplete) {
-    xpResult = await addXp(userId, quest.xpReward);
+    xpResult     = await addXp(userId, quest.xpReward);
     streakResult = await updateStreak(userId);
+    rankResult   = await updateUserRank(userId);
   }
 
   return {
-    completed: isComplete,
+    completed:    isComplete,
     currentValue: clampedValue,
-    xp: xpResult,
-    streak: streakResult,
+    xp:           xpResult,
+    streak:       streakResult,
+    rank:         rankResult,
   };
 }
 

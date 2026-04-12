@@ -13,7 +13,7 @@ async function addXp(userId, amount) {
   if (!userSnap.exists) throw new Error('User not found');
 
   const user = userSnap.data();
-  let newXp = (user.xp || 0) + amount;
+  let newXp    = (user.xp || 0) + amount;
   let newLevel = user.level || 1;
 
   // Level up loop — handle multiple level-ups at once
@@ -21,6 +21,9 @@ async function addXp(userId, amount) {
     newXp -= xpRequiredForLevel(newLevel);
     newLevel++;
   }
+
+  // XP never goes below 0 (penalty deductions cannot drop below floor)
+  newXp = Math.max(0, newXp);
 
   await userRef.update({ xp: newXp, level: newLevel });
 

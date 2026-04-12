@@ -50,6 +50,45 @@ export function fetchQuestHistory(month: string) {
   return apiFetch<QuestHistoryResponse>(`/api/quests/history?month=${month}`);
 }
 
+// Rank
+export function fetchRank() {
+  return apiFetch<RankData>('/api/rank');
+}
+export function setActiveTitle(title: string) {
+  return apiFetch<{ activeTitle: string }>('/api/rank/title', {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  });
+}
+
+// Boss
+export function generateBossQuest() {
+  return apiFetch<{ generated: boolean; boss?: BossQuest }>('/api/boss/generate', { method: 'POST' });
+}
+export function fetchCurrentBoss() {
+  return apiFetch<{ boss: BossQuest | null }>('/api/boss/current');
+}
+export function updateBossProgress(bossId: string, currentValue: number) {
+  return apiFetch<{ completed: boolean; currentValue: number; xp?: { xp: number; level: number } }>(
+    `/api/boss/${bossId}`,
+    { method: 'PATCH', body: JSON.stringify({ currentValue }) }
+  );
+}
+
+// Penalty
+export function generatePenalty() {
+  return apiFetch<{ generated: boolean; penalty?: PenaltyQuest }>('/api/penalty/generate', { method: 'POST' });
+}
+export function fetchActivePenalty() {
+  return apiFetch<{ penalty: PenaltyQuest | null }>('/api/penalty/active');
+}
+export function updatePenaltyProgress(penaltyId: string, currentValue: number) {
+  return apiFetch<{ completed: boolean; currentValue: number }>(
+    `/api/penalty/${penaltyId}`,
+    { method: 'PATCH', body: JSON.stringify({ currentValue }) }
+  );
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -64,6 +103,8 @@ export function fetchAnalyticsHeatmap() {
 }
 
 // Types
+export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -71,6 +112,9 @@ export interface UserProfile {
   level: number;
   streakCount: number;
   lastActiveDate: string | null;
+  rank: Rank;
+  titles: string[];
+  activeTitle: string | null;
 }
 
 export interface DailyQuest {
@@ -150,4 +194,41 @@ export interface HeatmapEntry {
   date: string;
   total: number;
   completed: number;
+}
+
+// ─── Progression types ────────────────────────────────────────────────────────
+
+export interface RankData {
+  rank: Rank;
+  titles: string[];
+  activeTitle: string | null;
+}
+
+export interface BossQuest {
+  id: string;
+  userId: string;
+  weekStart: string;
+  title: string;
+  description: string;
+  questType: string;
+  unit: string;
+  targetValue: number;
+  currentValue: number;
+  xpReward: number;
+  completed: boolean;
+  difficulty: number;
+}
+
+export interface PenaltyQuest {
+  id: string;
+  userId: string;
+  date: string;
+  title: string;
+  description: string;
+  targetValue: number;
+  currentValue: number;
+  unit: string;
+  xpPenalty: number;
+  completed: boolean;
+  expired: boolean;
 }

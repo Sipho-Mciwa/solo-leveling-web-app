@@ -2,18 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const questRoutes = require('./routes/questRoutes');
-const userRoutes = require('./routes/userRoutes');
+const questRoutes    = require('./routes/questRoutes');
+const userRoutes     = require('./routes/userRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const rankRoutes     = require('./routes/rankRoutes');
+const penaltyRoutes  = require('./routes/penaltyRoutes');
+const bossRoutes     = require('./routes/bossRoutes');
 
 const app = express();
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 
-app.use('/api/quests', questRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/quests',    questRoutes);
+app.use('/api/users',     userRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/rank',      rankRoutes);
+app.use('/api/penalty',   penaltyRoutes);
+app.use('/api/boss',      bossRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 

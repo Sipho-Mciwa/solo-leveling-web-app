@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { fetchUserProfile, generateDailyQuests, UserProfile } from '@/lib/api';
+import { fetchUserProfile, generateDailyQuests, generateBossQuest, generatePenalty, UserProfile } from '@/lib/api';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -30,8 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const profile = await fetchUserProfile(user.email ?? undefined);
       setUserProfile(profile);
-      // Generate today's quests on every login/session restore
-      await generateDailyQuests();
+      // Run all generation tasks in parallel on login/session restore
+      await Promise.all([
+        generateDailyQuests(),
+        generateBossQuest(),
+        generatePenalty(),
+      ]);
     } catch (err) {
       console.error('Failed to load profile:', err);
     }

@@ -3,9 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { QuestProvider } from '@/context/QuestContext';
 import Header from '@/components/Header';
-import Dashboard from '@/components/Dashboard';
+import HunterCard from '@/components/HunterCard';
 
 export default function HomePage() {
   const { firebaseUser, loading } = useAuth();
@@ -28,11 +27,11 @@ export default function HomePage() {
   if (!firebaseUser) return null;
 
   return (
-    <QuestProvider>
-      <div className="min-h-screen bg-bg">
-        <Header />
-        <Dashboard />
-      </div>
-    </QuestProvider>
+    <div className="min-h-screen bg-bg">
+      <Header />
+      <main className="max-w-sm mx-auto px-6 py-10">
+        <HunterCard />
+      </main>
+    </div>
   );
 }

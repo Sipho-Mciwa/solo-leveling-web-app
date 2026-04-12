@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { QuestProvider } from '@/context/QuestContext';
+import { ChallengeProvider } from '@/context/ChallengeContext';
 import Header from '@/components/Header';
 import Dashboard from '@/components/Dashboard';
 
@@ -29,10 +30,12 @@ export default function DashboardPage() {
 
   return (
     <QuestProvider>
-      <div className="min-h-screen bg-bg">
-        <Header />
-        <Dashboard />
-      </div>
+      <ChallengeProvider>
+        <div className="min-h-screen bg-bg">
+          <Header />
+          <Dashboard />
+        </div>
+      </ChallengeProvider>
     </QuestProvider>
   );
 }

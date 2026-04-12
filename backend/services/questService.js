@@ -13,8 +13,11 @@ const DEFAULT_QUESTS = [
   { title: 'Push-ups', type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
   { title: 'Sit-ups',  type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
   { title: 'Squats',   type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
-  { title: 'Running',  type: 'fitness', targetValue: 1,  xpReward: 50, isCustom: false },
+  { title: 'Running',  type: 'fitness', targetValue: 5,  xpReward: 50, isCustom: false },
 ];
+
+// Max overperformance bonus as a fraction of the base XP reward (50% cap)
+const OVERPERFORMANCE_CAP = 0.5;
 
 /**
  * Returns today's dailyQuests for a user, merged with their quest template data.
@@ -141,31 +144,41 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
 
   // Use scaled target if present (new docs), fall back to template targetValue (old docs)
   const target = dq.currentTarget ?? quest.targetValue;
-  const clampedValue = Math.min(newValue, target);
-  const isComplete = clampedValue >= target;
+  const isComplete = newValue >= target;
 
   await dqRef.update({
-    currentValue: clampedValue,
+    currentValue: newValue,
     completed: isComplete,
   });
 
   let xpResult = null;
   let streakResult = null;
-
   let rankResult = null;
+  let bonusXp = null;
 
   if (isComplete) {
-    xpResult     = await addXp(userId, quest.xpReward);
+    xpResult = await addXp(userId, quest.xpReward);
     streakResult = await updateStreak(userId);
-    rankResult   = await updateUserRank(userId);
+    rankResult = await updateUserRank(userId);
+
+    // Overperformance bonus: up to 50% extra XP for exceeding the target
+    if (newValue > target) {
+      const overRatio = Math.min((newValue - target) / target, OVERPERFORMANCE_CAP);
+      const bonusAmount = Math.floor(quest.xpReward * overRatio);
+      if (bonusAmount > 0) {
+        bonusXp = bonusAmount;
+        await addXp(userId, bonusAmount);
+      }
+    }
   }
 
   return {
     completed:    isComplete,
-    currentValue: clampedValue,
+    currentValue: newValue,
     xp:           xpResult,
     streak:       streakResult,
     rank:         rankResult,
+    bonusXp,
   };
 }
 

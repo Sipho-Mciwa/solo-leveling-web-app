@@ -89,6 +89,24 @@ export function updatePenaltyProgress(penaltyId: string, currentValue: number) {
   );
 }
 
+// Challenges
+export function fetchTodayChallenges() {
+  return apiFetch<DailyChallengesDoc | null>('/api/challenges/today');
+}
+
+export function generateDailyChallenges() {
+  return apiFetch<{ generated: boolean; message: string }>('/api/challenges/generate', {
+    method: 'POST',
+  });
+}
+
+export function completeChallenge(docId: string, challengeKey: string) {
+  return apiFetch<ChallengeCompleteResult>(`/api/challenges/${docId}/complete`, {
+    method: 'PATCH',
+    body: JSON.stringify({ challengeKey }),
+  });
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -141,6 +159,7 @@ export interface QuestUpdateResult {
   alreadyCompleted?: boolean;
   xp?: { xp: number; level: number };
   streak?: { streakCount: number };
+  bonusXp?: number;
 }
 
 export interface QuestDayEntry {
@@ -217,6 +236,30 @@ export interface BossQuest {
   xpReward: number;
   completed: boolean;
   difficulty: number;
+}
+
+export interface DailyChallenge {
+  key: string;
+  title: string;
+  xpReward: number;
+  completed: boolean;
+}
+
+export interface DailyChallengesDoc {
+  id: string;
+  userId: string;
+  date: string;
+  challenges: DailyChallenge[];
+  bonusAwarded: boolean;
+}
+
+export interface ChallengeCompleteResult {
+  completed?: boolean;
+  alreadyCompleted?: boolean;
+  xp?: { xp: number; level: number };
+  bonusAwarded: boolean;
+  bonusXp?: { xp: number; level: number };
+  allComplete: boolean;
 }
 
 export interface PenaltyQuest {

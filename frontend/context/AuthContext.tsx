@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { fetchUserProfile, generateDailyQuests, generateBossQuest, generatePenalty, UserProfile } from '@/lib/api';
+import { fetchUserProfile, generateDailyQuests, generateBossQuest, generatePenalty, generateDailyChallenges, UserProfile } from '@/lib/api';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         generateDailyQuests(),
         generateBossQuest(),
         generatePenalty(),
+        generateDailyChallenges(),
       ]);
     } catch (err) {
       console.error('Failed to load profile:', err);

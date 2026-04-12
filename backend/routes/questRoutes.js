@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getTodayQuests, generateDailyQuests, updateQuestProgress } = require('../services/questService');
+const { getTodayQuests, generateDailyQuests, updateQuestProgress, getQuestHistory } = require('../services/questService');
 const { auth } = require('../config/firebase');
 
 // Middleware: verify Firebase ID token
@@ -18,6 +18,20 @@ async function authenticate(req, res, next) {
     res.status(401).json({ error: 'Invalid token' });
   }
 }
+
+// GET /api/quests/history?month=YYYY-MM
+router.get('/history', authenticate, async (req, res) => {
+  const month = req.query.month || new Date().toISOString().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month must be YYYY-MM' });
+  }
+  try {
+    const result = await getQuestHistory(req.userId, month);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/quests/today
 router.get('/today', authenticate, async (req, res) => {

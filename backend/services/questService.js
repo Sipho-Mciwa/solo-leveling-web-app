@@ -144,4 +144,54 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
   };
 }
 
-module.exports = { getTodayQuests, generateDailyQuests, updateQuestProgress };
+/**
+ * Returns monthly quest history grouped by quest, with per-day completion data.
+ * Requires a Firestore composite index on: dailyQuests (userId ASC, date ASC).
+ * If the query fails with "index required", use the URL in the error to create it.
+ */
+async function getQuestHistory(userId, month) {
+  // month = "YYYY-MM"
+  const [year, monthNum] = month.split('-').map(Number);
+  const daysInMonth = new Date(year, monthNum, 0).getDate();
+  const startDate = `${month}-01`;
+  const endDate = `${month}-${String(daysInMonth).padStart(2, '0')}`;
+
+  const snapshot = await db
+    .collection('dailyQuests')
+    .where('userId', '==', userId)
+    .where('date', '>=', startDate)
+    .where('date', '<=', endDate)
+    .get();
+
+  if (snapshot.empty) return { quests: [] };
+
+  // Group by questId → { [date]: { completed, currentValue } }
+  const byQuestId = {};
+  for (const doc of snapshot.docs) {
+    const dq = doc.data();
+    if (!byQuestId[dq.questId]) byQuestId[dq.questId] = {};
+    byQuestId[dq.questId][dq.date] = {
+      completed: dq.completed,
+      currentValue: dq.currentValue,
+    };
+  }
+
+  // Fetch quest titles in parallel
+  const questIds = Object.keys(byQuestId);
+  const questSnaps = await Promise.all(
+    questIds.map((id) => db.collection('quests').doc(id).get())
+  );
+
+  const quests = questSnaps
+    .filter((snap) => snap.exists)
+    .map((snap) => ({
+      questId: snap.id,
+      title: snap.data().title,
+      history: byQuestId[snap.id],
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  return { quests };
+}
+
+module.exports = { getTodayQuests, generateDailyQuests, updateQuestProgress, getQuestHistory };

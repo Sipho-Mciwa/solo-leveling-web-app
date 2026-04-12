@@ -46,6 +46,10 @@ export function updateQuestProgress(questId: string, currentValue: number) {
   });
 }
 
+export function fetchQuestHistory(month: string) {
+  return apiFetch<QuestHistoryResponse>(`/api/quests/history?month=${month}`);
+}
+
 // Types
 export interface UserProfile {
   id: string;
@@ -76,4 +80,19 @@ export interface QuestUpdateResult {
   alreadyCompleted?: boolean;
   xp?: { xp: number; level: number };
   streak?: { streakCount: number };
+}
+
+export interface QuestDayEntry {
+  completed: boolean;
+  currentValue: number;
+}
+
+export interface QuestHistoryRow {
+  questId: string;
+  title: string;
+  history: Record<string, QuestDayEntry>; // key = "YYYY-MM-DD"
+}
+
+export interface QuestHistoryResponse {
+  quests: QuestHistoryRow[];
 }

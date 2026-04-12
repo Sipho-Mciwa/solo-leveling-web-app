@@ -1,11 +1,19 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProgressBar from './ProgressBar';
 
+const NAV_TABS = [
+  { label: 'Today', href: '/' },
+  { label: 'History', href: '/dashboard' },
+];
+
 export default function Header() {
   const { userProfile, logout } = useAuth();
+  const pathname = usePathname();
 
   if (!userProfile) return null;
 
@@ -13,16 +21,13 @@ export default function Header() {
   const xpNeeded = xpRequiredForLevel(level);
 
   return (
-    <header className="border-b border-border px-6 py-4">
-      <div className="max-w-2xl mx-auto flex items-center justify-between gap-6">
-        {/* Left: title */}
-        <div>
-          <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
-            Solo Leveling
-          </h1>
-        </div>
+    <header className="border-b border-border">
+      {/* Stats row */}
+      <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
+        <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
+          Solo Leveling
+        </h1>
 
-        {/* Center: XP bar */}
         <div className="flex-1 max-w-xs">
           <div className="flex justify-between text-xs text-muted mb-1">
             <span>Level {level}</span>
@@ -31,7 +36,6 @@ export default function Header() {
           <ProgressBar current={xp} target={xpNeeded} color="bg-accent" />
         </div>
 
-        {/* Right: streak + logout */}
         <div className="flex items-center gap-4">
           <div className="text-center">
             <p className="text-lg font-bold text-white leading-none">{streakCount}</p>
@@ -44,6 +48,23 @@ export default function Header() {
             Sign out
           </button>
         </div>
+      </div>
+
+      {/* Nav tabs */}
+      <div className="max-w-2xl mx-auto px-6 flex gap-1">
+        {NAV_TABS.map((tab) => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              pathname === tab.href
+                ? 'border-accent text-white'
+                : 'border-transparent text-muted hover:text-white'
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
     </header>
   );

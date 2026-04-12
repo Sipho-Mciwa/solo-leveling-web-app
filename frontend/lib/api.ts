@@ -82,9 +82,13 @@ export interface DailyQuest {
   completed: boolean;
   title: string;
   type: 'fitness' | 'habit';
-  targetValue: number;
+  targetValue: number;   // base from quest template
   xpReward: number;
   isCustom: boolean;
+  // Difficulty scaling (present on quests generated after the system was added)
+  baseTarget?: number;
+  currentTarget?: number;
+  difficultyMultiplier?: number;
 }
 
 export interface QuestUpdateResult {

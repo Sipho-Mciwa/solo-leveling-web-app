@@ -1,6 +1,7 @@
 const { db } = require('../config/firebase');
 const { addXp } = require('./xpService');
 const { updateStreak } = require('./streakService');
+const { applyDifficultyScaling } = require('./difficultyService');
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -70,8 +71,22 @@ async function generateDailyQuests(userId) {
     questDocs = await seedDefaultQuests(userId);
   }
 
+  // Fetch user profile for streak context
+  const userSnap = await db.collection('users').doc(userId).get();
+  const userData = userSnap.exists ? userSnap.data() : {};
+
+  // Compute difficulty scaling for all quests in one batched call
+  const scalingResults = await applyDifficultyScaling(
+    userId,
+    questDocs,
+    userData.streakCount || 0,
+    userData.lastActiveDate || null
+  );
+  const scalingByQuestId = Object.fromEntries(scalingResults.map((s) => [s.questId, s]));
+
   const batch = db.batch();
   for (const qDoc of questDocs) {
+    const scaling = scalingByQuestId[qDoc.id];
     const ref = db.collection('dailyQuests').doc();
     batch.set(ref, {
       userId,
@@ -79,6 +94,9 @@ async function generateDailyQuests(userId) {
       date,
       currentValue: 0,
       completed: false,
+      baseTarget: scaling.baseTarget,
+      currentTarget: scaling.currentTarget,
+      difficultyMultiplier: scaling.difficultyMultiplier,
     });
   }
   await batch.commit();
@@ -120,8 +138,10 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
   if (!questSnap.exists) throw new Error('Quest template not found');
   const quest = questSnap.data();
 
-  const clampedValue = Math.min(newValue, quest.targetValue);
-  const isComplete = clampedValue >= quest.targetValue;
+  // Use scaled target if present (new docs), fall back to template targetValue (old docs)
+  const target = dq.currentTarget ?? quest.targetValue;
+  const clampedValue = Math.min(newValue, target);
+  const isComplete = clampedValue >= target;
 
   await dqRef.update({
     currentValue: clampedValue,

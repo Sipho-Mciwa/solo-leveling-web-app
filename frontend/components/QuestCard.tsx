@@ -17,15 +17,33 @@ const QUEST_ICONS: Record<string, string> = {
   Running: '🏃',
 };
 
+function DifficultyBadge({ multiplier }: { multiplier: number }) {
+  const delta = multiplier - 1;
+  if (Math.abs(delta) < 0.05) return null; // stable — don't show badge
+  const harder = delta > 0;
+  const pct = Math.abs(Math.round(delta * 100));
+  return (
+    <span
+      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+        harder
+          ? 'text-amber-400 bg-amber-400/10'
+          : 'text-sky-400 bg-sky-400/10'
+      }`}
+    >
+      {harder ? '↑' : '↓'} {pct}%
+    </span>
+  );
+}
+
 export default function QuestCard({ quest }: QuestCardProps) {
-  const { updateProgress, refresh } = useQuests();
+  const { updateProgress } = useQuests();
   const { refreshProfile } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const icon = QUEST_ICONS[quest.title] || '⚡';
-  const pct = Math.min(100, quest.targetValue > 0 ? (quest.currentValue / quest.targetValue) * 100 : 0);
-
+  // Use scaled target when available, fall back to template value for old docs
+  const effectiveTarget = quest.currentTarget ?? quest.targetValue;
   const unit = quest.title === 'Running' ? 'km' : 'reps';
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,8 +54,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
     setSubmitting(true);
     try {
       await updateProgress(quest.id, quest.currentValue + val);
-      // If just completed, refresh profile for updated XP/streak
-      if (quest.currentValue + val >= quest.targetValue) {
+      if (quest.currentValue + val >= effectiveTarget) {
         await refreshProfile();
       }
       setInputValue('');
@@ -62,7 +79,12 @@ export default function QuestCard({ quest }: QuestCardProps) {
           <span className="text-2xl">{icon}</span>
           <div>
             <h3 className="font-semibold text-white text-sm">{quest.title}</h3>
-            <p className="text-xs text-muted mt-0.5">+{quest.xpReward} XP</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-muted">+{quest.xpReward} XP</p>
+              {quest.difficultyMultiplier !== undefined && (
+                <DifficultyBadge multiplier={quest.difficultyMultiplier} />
+              )}
+            </div>
           </div>
         </div>
         {quest.completed ? (
@@ -71,7 +93,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
           </span>
         ) : (
           <span className="text-xs text-muted">
-            {quest.currentValue}/{quest.targetValue} {unit}
+            {quest.currentValue}/{effectiveTarget} {unit}
           </span>
         )}
       </div>
@@ -79,7 +101,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
       {/* Progress bar */}
       <ProgressBar
         current={quest.currentValue}
-        target={quest.targetValue}
+        target={effectiveTarget}
         color={quest.completed ? 'bg-accent-light' : 'bg-accent'}
       />
 

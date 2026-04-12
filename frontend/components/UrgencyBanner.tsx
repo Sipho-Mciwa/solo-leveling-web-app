@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DailyQuest } from '@/lib/api';
 import {
+  UrgencyLevel,
   getUrgencyStatus,
   generateDynamicMessage,
   formatTimeLeft,
@@ -28,14 +29,14 @@ export default function UrgencyBanner({ quests }: UrgencyBannerProps) {
 
   const timeLeft = formatTimeLeft(status.hoursLeft, status.minutesLeft);
 
-  const styles: Record<typeof status.level, string> = {
+  const styles: Record<UrgencyLevel, string> = {
     none:   '',
     low:    'border-border bg-surface text-muted',
     medium: 'border-amber-600/40 bg-amber-900/10 text-amber-400',
     high:   'border-red-600/40 bg-red-900/10 text-red-400',
   };
 
-  const dotStyles: Record<typeof status.level, string> = {
+  const dotStyles: Record<UrgencyLevel, string> = {
     none:   '',
     low:    'bg-muted',
     medium: 'bg-amber-400 animate-pulse',

@@ -9,6 +9,7 @@ function todayStr() {
 // Default quests seeded for every user
 const DEFAULT_QUESTS = [
   { title: 'Push-ups', type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
+  { title: 'Sit-ups',  type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
   { title: 'Squats',   type: 'fitness', targetValue: 20, xpReward: 30, isCustom: false },
   { title: 'Running',  type: 'fitness', targetValue: 1,  xpReward: 50, isCustom: false },
 ];
@@ -85,7 +86,7 @@ async function generateDailyQuests(userId) {
   return { generated: true, message: 'Daily quests created' };
 }
 
-async function seedDefaultQuests(userId) {
+async function seedDefaultQuests(_userId) {
   const batch = db.batch();
   const refs = [];
 

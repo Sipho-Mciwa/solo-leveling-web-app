@@ -12,6 +12,7 @@ interface QuestCardProps {
 
 const QUEST_ICONS: Record<string, string> = {
   'Push-ups': '💪',
+  'Sit-ups': '🔥',
   Squats: '🦵',
   Running: '🏃',
 };

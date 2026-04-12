@@ -9,8 +9,21 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  type TooltipProps,
 } from 'recharts';
 import { QuestStat } from '@/lib/api';
+
+function QuestTooltip({ active, payload, label }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const q = payload[0]?.payload as QuestStat | undefined;
+  if (!q) return null;
+  return (
+    <div style={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12, padding: '8px 12px' }}>
+      <p style={{ color: '#999', marginBottom: 4 }}>{label}</p>
+      <p style={{ color: '#fff' }}>{q.completionRate}% &nbsp;({q.completedDays}/{q.totalDays} days)</p>
+    </div>
+  );
+}
 
 interface QuestBreakdownProps {
   quests: QuestStat[];

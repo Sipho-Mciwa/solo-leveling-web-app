@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Firebase service account key
+**/serviceAccountKey.json
+**/serviceAccountKey*.json
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Build output
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

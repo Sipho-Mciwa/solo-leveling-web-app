@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProgressBar from './ProgressBar';
 import RankBadge from './RankBadge';
+import RiskIndicators from './RiskIndicators';
 
 const NAV_TABS = [
   { label: 'Today', href: '/' },
@@ -47,10 +48,7 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="text-center">
-            <p className="text-lg font-bold text-white leading-none">{streakCount}</p>
-            <p className="text-xs text-muted">day streak</p>
-          </div>
+          <RiskIndicators streakCount={streakCount} profile={userProfile} />
           <button
             onClick={logout}
             className="text-xs text-muted hover:text-white transition-colors"

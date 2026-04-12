@@ -8,6 +8,7 @@ import QuestCard from './QuestCard';
 import PenaltyAlert from './PenaltyAlert';
 import BossQuestCard from './BossQuestCard';
 import RewardsPanel from './RewardsPanel';
+import UrgencyBanner from './UrgencyBanner';
 
 export default function Dashboard() {
   const { quests, loading, error } = useQuests();
@@ -36,6 +37,9 @@ export default function Dashboard() {
       {boss && (
         <BossQuestCard boss={boss} onUpdate={setBoss} />
       )}
+
+      {/* Urgency banner — shows when quests are incomplete */}
+      <UrgencyBanner quests={quests} />
 
       {/* Date + summary */}
       <div className="mb-8">

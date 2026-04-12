@@ -5,6 +5,8 @@ import { DailyQuest } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 import { useQuests } from '@/context/QuestContext';
 import { useAuth } from '@/context/AuthContext';
+import RewardPopup from './RewardPopup';
+import { triggerRandomReward, RewardResult } from '@/lib/engagementService';
 
 interface QuestCardProps {
   quest: DailyQuest;
@@ -40,6 +42,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
   const { refreshProfile } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [reward, setReward] = useState<RewardResult | null>(null);
 
   const icon = QUEST_ICONS[quest.title] || '⚡';
   // Use scaled target when available, fall back to template value for old docs
@@ -53,9 +56,12 @@ export default function QuestCard({ quest }: QuestCardProps) {
 
     setSubmitting(true);
     try {
-      await updateProgress(quest.id, quest.currentValue + val);
-      if (quest.currentValue + val >= effectiveTarget) {
+      const newValue = quest.currentValue + val;
+      await updateProgress(quest.id, newValue);
+      if (newValue >= effectiveTarget) {
         await refreshProfile();
+        const result = triggerRandomReward(quest.xpReward);
+        if (result.show) setReward(result);
       }
       setInputValue('');
     } catch (err) {
@@ -125,6 +131,11 @@ export default function QuestCard({ quest }: QuestCardProps) {
             {submitting ? '...' : 'Log'}
           </button>
         </form>
+      )}
+
+      {/* Bonus reward popup */}
+      {reward && (
+        <RewardPopup reward={reward} onDismiss={() => setReward(null)} />
       )}
     </div>
   );

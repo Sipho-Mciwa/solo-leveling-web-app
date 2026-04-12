@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const questRoutes = require('./routes/questRoutes');
 const userRoutes = require('./routes/userRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use('/api/quests', questRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 

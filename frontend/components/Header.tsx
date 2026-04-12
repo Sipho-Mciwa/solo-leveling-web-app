@@ -9,6 +9,7 @@ import ProgressBar from './ProgressBar';
 const NAV_TABS = [
   { label: 'Today', href: '/' },
   { label: 'History', href: '/dashboard' },
+  { label: 'Analytics', href: '/analytics' },
 ];
 
 export default function Header() {
@@ -23,7 +24,7 @@ export default function Header() {
   return (
     <header className="border-b border-border">
       {/* Stats row */}
-      <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
+      <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
         <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
           Solo Leveling
         </h1>
@@ -51,7 +52,7 @@ export default function Header() {
       </div>
 
       {/* Nav tabs */}
-      <div className="max-w-2xl mx-auto px-6 flex gap-1">
+      <div className="max-w-4xl mx-auto px-6 flex gap-1">
         {NAV_TABS.map((tab) => (
           <Link
             key={tab.href}

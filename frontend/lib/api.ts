@@ -50,6 +50,19 @@ export function fetchQuestHistory(month: string) {
   return apiFetch<QuestHistoryResponse>(`/api/quests/history?month=${month}`);
 }
 
+// Analytics
+export function fetchAnalyticsOverview() {
+  return apiFetch<AnalyticsOverview>('/api/analytics/overview');
+}
+
+export function fetchAnalyticsQuests() {
+  return apiFetch<{ quests: QuestStat[] }>('/api/analytics/quests');
+}
+
+export function fetchAnalyticsHeatmap() {
+  return apiFetch<{ data: HeatmapEntry[] }>('/api/analytics/heatmap');
+}
+
 // Types
 export interface UserProfile {
   id: string;
@@ -95,4 +108,42 @@ export interface QuestHistoryRow {
 
 export interface QuestHistoryResponse {
   quests: QuestHistoryRow[];
+}
+
+export interface DailyRate {
+  date: string;
+  rate: number | null; // null = no quests generated that day
+}
+
+export interface WeeklyAverage {
+  week: string;
+  rate: number; // 0–100
+}
+
+export interface Insight {
+  type: 'success' | 'warning' | 'info';
+  title: string;
+  text: string;
+}
+
+export interface AnalyticsOverview {
+  activeDays: number;
+  overallCompletionRate: number; // 0–100
+  dailyRates: DailyRate[];
+  weeklyAverages: WeeklyAverage[];
+  insights: Insight[];
+}
+
+export interface QuestStat {
+  questId: string;
+  title: string;
+  completionRate: number; // 0–100
+  completedDays: number;
+  totalDays: number;
+}
+
+export interface HeatmapEntry {
+  date: string;
+  total: number;
+  completed: number;
 }

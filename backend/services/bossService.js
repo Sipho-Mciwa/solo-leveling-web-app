@@ -7,28 +7,28 @@ const { updateUserRank } = require('./rankService');
 const BOSS_TEMPLATES = [
   {
     title:       "Shadow Monarch's Trial",
-    description: 'The Shadow Monarch watches. Prove your body is iron.',
+    flavour:     'The Shadow Monarch watches. Prove your body is iron.',
     questType:   'push-ups',
     unit:        'reps',
     baseTarget:  100,
   },
   {
     title:       'Run from the Abyss',
-    description: 'Death itself gives chase. There is only one option — run.',
+    flavour:     'Death itself gives chase. There is only one option — run.',
     questType:   'running',
     unit:        'km',
     baseTarget:  5,
   },
   {
     title:       'Core of Steel',
-    description: 'Your core must be unbreakable to survive what comes next.',
+    flavour:     'Your core must be unbreakable to survive what comes next.',
     questType:   'sit-ups',
     unit:        'reps',
     baseTarget:  100,
   },
   {
     title:       'Throne of Endurance',
-    description: 'Kings do not sit on thrones. They earn them.',
+    flavour:     'Kings do not sit on thrones. They earn them.',
     questType:   'squats',
     unit:        'reps',
     baseTarget:  100,
@@ -86,11 +86,18 @@ async function generateBossQuest(userId) {
   const targetValue = Math.round(template.baseTarget * scaleFactor);
   const xpReward    = Math.min(500 + level * 20, 1500);
 
+  const questLabel =
+    template.questType === 'running'
+      ? `Run ${targetValue} km`
+      : `Complete ${targetValue} ${template.questType}`;
+
+  const description = `${template.flavour} ${questLabel} before the week ends to claim victory.`;
+
   const bossData = {
     userId,
     weekStart,
     title:        template.title,
-    description:  template.description,
+    description,
     questType:    template.questType,
     unit:         template.unit,
     targetValue,
@@ -153,4 +160,31 @@ async function updateBossProgress(bossId, userId, newValue) {
   };
 }
 
-module.exports = { generateBossQuest, getCurrentBoss, updateBossProgress };
+/**
+ * Called automatically when a daily quest is updated.
+ * If the quest type matches the active boss, the logged delta is added to boss progress.
+ */
+async function syncBossFromQuest(userId, questTitle, delta) {
+  if (delta <= 0) return;
+
+  const { boss } = await getCurrentBoss(userId);
+  if (!boss || boss.completed) return;
+
+  // 'Push-ups' → 'push-ups', 'Sit-ups' → 'sit-ups', 'Running' → 'running', etc.
+  if (questTitle.toLowerCase() !== boss.questType) return;
+
+  const newValue  = Math.min(boss.currentValue + delta, boss.targetValue);
+  const isComplete = newValue >= boss.targetValue;
+
+  await db.collection('bossQuests').doc(boss.id).update({
+    currentValue: newValue,
+    completed:    isComplete,
+  });
+
+  if (isComplete) {
+    await addXp(userId, boss.xpReward);
+    await updateUserRank(userId);
+  }
+}
+
+module.exports = { generateBossQuest, getCurrentBoss, updateBossProgress, syncBossFromQuest };

@@ -1,5 +1,6 @@
 'use client';
 
+import CountUp from 'react-countup';
 import { AnalyticsOverview } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -8,11 +9,13 @@ interface StatCardsProps {
   totalQuestsDone: number;
 }
 
-function Card({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function Card({ label, value, suffix, sub }: { label: string; value: number; suffix?: string; sub?: string }) {
   return (
     <div className="bg-surface border border-border rounded-2xl px-5 py-4">
       <p className="text-xs text-muted uppercase tracking-wide mb-2">{label}</p>
-      <p className="text-3xl font-bold text-white leading-none">{value}</p>
+      <p className="text-3xl font-bold text-white leading-none">
+        <CountUp end={value} duration={1.2} useEasing suffix={suffix} />
+      </p>
       {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}
     </div>
   );
@@ -25,7 +28,8 @@ export default function StatCards({ overview, totalQuestsDone }: StatCardsProps)
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <Card
         label="Avg completion"
-        value={`${overview.overallCompletionRate}%`}
+        value={overview.overallCompletionRate}
+        suffix="%"
         sub="last 30 days"
       />
       <Card

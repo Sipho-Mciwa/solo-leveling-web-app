@@ -1,13 +1,27 @@
 'use client';
 
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuests } from '@/context/QuestContext';
 import QuestCard from './QuestCard';
+
+// ─── Stagger variants ─────────────────────────────────────────────────────────
+
+const listVariants = {
+  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } },
+};
+
+const itemVariants = {
+  hidden:  { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function QuestSection() {
   const { quests, loading, error } = useQuests();
 
   const completed = quests.filter((q) => q.completed).length;
-  const total = quests.length;
+  const total     = quests.length;
 
   return (
     <section>
@@ -15,9 +29,7 @@ export default function QuestSection() {
         <div>
           <h2 className="text-lg font-bold text-white">Daily Quests</h2>
           {total > 0 && (
-            <p className="text-muted text-xs mt-0.5">
-              {completed}/{total} completed
-            </p>
+            <p className="text-muted text-xs mt-0.5">{completed}/{total} completed</p>
           )}
         </div>
         {total > 0 && (
@@ -47,19 +59,35 @@ export default function QuestSection() {
         </div>
       )}
 
+      {/* Staggered quest cards */}
       {!loading && quests.length > 0 && (
-        <div className="space-y-3">
+        <motion.div
+          className="space-y-3"
+          initial="hidden"
+          animate="visible"
+          variants={listVariants}
+        >
           {quests.map((q) => (
-            <QuestCard key={q.id} quest={q} />
+            <motion.div key={q.id} variants={itemVariants}>
+              <QuestCard quest={q} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
-      {!loading && total > 0 && completed === total && (
-        <p className="mt-4 text-center text-sm text-accent-light font-semibold">
-          All quests complete.
-        </p>
-      )}
+      <AnimatePresence>
+        {!loading && total > 0 && completed === total && (
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="mt-4 text-center text-sm text-accent-light font-semibold"
+          >
+            All quests complete.
+          </motion.p>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

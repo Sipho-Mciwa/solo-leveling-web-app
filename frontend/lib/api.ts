@@ -111,6 +111,11 @@ export function fetchChallengeHistory(month: string) {
   return apiFetch<ChallengeHistoryResponse>(`/api/challenges/history?month=${month}`);
 }
 
+// Stats
+export function fetchStats() {
+  return apiFetch<HunterStats>('/api/stats');
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -278,6 +283,23 @@ export interface ChallengeCompleteResult {
   bonusAwarded: boolean;
   bonusXp?: { xp: number; level: number };
   allComplete: boolean;
+}
+
+export interface StatDelta {
+  PHY:        number; // last-7 minus prev-7 (positive = improving)
+  SPD:        number;
+  STAMINA:    number;
+  DISCIPLINE: number;
+  INTELLECT:  number;
+}
+
+export interface HunterStats {
+  PHY:        number; // 0–100, full 14-day window
+  SPD:        number;
+  STAMINA:    number;
+  DISCIPLINE: number;
+  INTELLECT:  number;
+  delta:      StatDelta;
 }
 
 export interface PenaltyQuest {

@@ -1,8 +1,22 @@
 'use client';
 
+import { motion, AnimatePresence } from 'framer-motion';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
 import { DailyChallenge } from '@/lib/api';
+
+// ─── Stagger variants ─────────────────────────────────────────────────────────
+
+const listVariants = {
+  visible: { transition: { staggerChildren: 0.055, delayChildren: 0.05 } },
+};
+
+const itemVariants = {
+  hidden:  { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' as const } },
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ChallengeSection() {
   const { challengeDoc, loading } = useChallenges();
@@ -29,7 +43,7 @@ export default function ChallengeSection() {
 
   const { challenges, bonusAwarded } = challengeDoc;
   const completedCount = challenges.filter((c) => c.completed).length;
-  const allComplete = completedCount === challenges.length;
+  const allComplete    = completedCount === challenges.length;
   const earnedXp =
     challenges.filter((c) => c.completed).reduce((sum, c) => sum + c.xpReward, 0) +
     (bonusAwarded ? 100 : 0);
@@ -54,23 +68,41 @@ export default function ChallengeSection() {
         </div>
       </div>
 
-      <div className="space-y-2">
+      {/* Staggered list */}
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        variants={listVariants}
+      >
         {challenges.map((c) => (
-          <ChallengeItem key={c.key} challenge={c} />
+          <motion.div key={c.key} variants={itemVariants}>
+            <ChallengeItem challenge={c} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      {allComplete && (
-        <p className="mt-3 text-center text-xs text-yellow-400/80">
-          All challenges complete — discipline maintained.
-        </p>
-      )}
+      <AnimatePresence>
+        {allComplete && (
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="mt-3 text-center text-xs text-yellow-400/80"
+          >
+            All challenges complete — discipline maintained.
+          </motion.p>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
 
+// ─── Challenge item ───────────────────────────────────────────────────────────
+
 function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
-  const { complete } = useChallenges();
+  const { complete }     = useChallenges();
   const { refreshProfile } = useAuth();
 
   async function handleClick() {
@@ -80,33 +112,47 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
   }
 
   return (
-    <button
+    <motion.button
       onClick={handleClick}
       disabled={challenge.completed}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+      // Tap shrink feedback
+      whileTap={!challenge.completed ? { scale: 0.97 } : {}}
+      transition={{ duration: 0.1 }}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left min-h-[48px] ${
         challenge.completed
           ? 'bg-surface/30 border-border/30 cursor-default'
           : 'bg-surface border-border hover:border-yellow-400/40 hover:bg-surface/80 cursor-pointer'
       }`}
     >
-      {/* Checkbox */}
-      <div
-        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-          challenge.completed
-            ? 'border-yellow-400 bg-yellow-400'
-            : 'border-border'
+      {/* Checkbox circle — bounces on completion */}
+      <motion.div
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+          challenge.completed ? 'border-yellow-400 bg-yellow-400' : 'border-border'
         }`}
+        animate={challenge.completed ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
       >
-        {challenge.completed && (
-          <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        )}
-      </div>
+        <AnimatePresence>
+          {challenge.completed && (
+            <motion.svg
+              key="check"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+              className="w-3 h-3 text-black"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </motion.svg>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Title */}
       <span
@@ -125,6 +171,6 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
       >
         +{challenge.xpReward} XP
       </span>
-    </button>
+    </motion.button>
   );
 }

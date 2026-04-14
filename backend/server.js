@@ -9,6 +9,7 @@ const rankRoutes       = require('./routes/rankRoutes');
 const penaltyRoutes    = require('./routes/penaltyRoutes');
 const bossRoutes       = require('./routes/bossRoutes');
 const challengeRoutes  = require('./routes/challengeRoutes');
+const statsRoutes      = require('./routes/statsRoutes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/rank',       rankRoutes);
 app.use('/api/penalty',    penaltyRoutes);
 app.use('/api/boss',       bossRoutes);
 app.use('/api/challenges', challengeRoutes);
+app.use('/api/stats',      statsRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 

@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
   type TooltipProps,
 } from 'recharts';
+import { motion } from 'framer-motion';
+import CountUp from 'react-countup';
 import { HunterStats } from '@/lib/api';
 
 type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
@@ -20,6 +22,8 @@ interface Props {
 }
 
 const STAT_ORDER: StatKey[] = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 function StatTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
@@ -40,10 +44,17 @@ function StatTooltip({ active, payload }: TooltipProps<number, string>) {
   );
 }
 
-// Custom tick so we can colour the weakest stat label amber
-function AxisTick(props: { x?: number; y?: number; payload?: { value: string }; textAnchor?: string }, weakestStat: StatKey | null) {
+// ─── Custom axis tick — amber for weakest stat ────────────────────────────────
+
+type TextAnchor = React.SVGAttributes<SVGTextElement>['textAnchor'];
+
+function AxisTick(
+  props: { x?: number; y?: number; payload?: { value: string }; textAnchor?: TextAnchor },
+  weakestStat: StatKey | null,
+) {
   const { x = 0, y = 0, payload, textAnchor = 'middle' } = props;
-  if (!payload) return null;
+  // Recharts requires a ReactElement return — use empty text if no payload
+  if (!payload) return <text />;
   const isWeak = payload.value === weakestStat;
   return (
     <text
@@ -60,11 +71,18 @@ function AxisTick(props: { x?: number; y?: number; payload?: { value: string }; 
   );
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function StatsRadarChart({ stats, weakestStat }: Props) {
   const data = STAT_ORDER.map((key) => ({ subject: key, value: stats[key] }));
 
   return (
-    <div className="px-6 pt-5 pb-4 border-t border-border">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="px-4 sm:px-6 pt-5 pb-4 border-t border-border"
+    >
       <p className="text-[10px] text-muted uppercase tracking-widest text-center mb-1">
         Hunter Stats
       </p>
@@ -82,7 +100,7 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
         </defs>
       </svg>
 
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={190}>
         <RadarChart data={data} cx="50%" cy="50%" outerRadius="68%">
           <PolarGrid stroke="#2a2a2a" strokeDasharray="3 3" />
 
@@ -105,27 +123,25 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
             fill="#7c3aed"
             fillOpacity={0.2}
             isAnimationActive
-            animationDuration={700}
+            animationBegin={200}
+            animationDuration={800}
+            animationEasing="ease-out"
             style={{ filter: 'url(#stat-glow)' }}
           />
         </RadarChart>
       </ResponsiveContainer>
 
-      {/* Stat grid: value + delta per stat */}
+      {/* Stat grid: count-up values + delta */}
       <div className="grid grid-cols-5 gap-0 mt-1 pb-1">
         {STAT_ORDER.map((key) => {
-          const value = stats[key];
-          const d     = stats.delta[key];
+          const value  = stats[key];
+          const d      = stats.delta[key];
           const isWeak = key === weakestStat;
 
-          const absD = Math.abs(d);
+          const absD       = Math.abs(d);
           const deltaLabel = absD <= 3 ? '—' : d > 0 ? `+${d}` : `${d}`;
           const deltaColor =
-            absD <= 3
-              ? 'text-muted'
-              : d > 0
-              ? 'text-green-400'
-              : 'text-red-400';
+            absD <= 3 ? 'text-muted' : d > 0 ? 'text-green-400' : 'text-red-400';
 
           return (
             <div key={key} className="flex flex-col items-center gap-0.5">
@@ -141,7 +157,7 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
                   isWeak ? 'text-amber-400' : 'text-white'
                 }`}
               >
-                {value}
+                <CountUp end={value} duration={1.1} useEasing />
               </span>
               <span className={`text-[9px] tabular-nums leading-none ${deltaColor}`}>
                 {deltaLabel}
@@ -157,6 +173,6 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
           {weakestStat} is your weakest attribute
         </p>
       )}
-    </div>
+    </motion.div>
   );
 }

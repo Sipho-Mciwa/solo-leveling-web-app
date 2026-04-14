@@ -16,18 +16,18 @@ export default function RiskIndicators({ streakCount, profile }: RiskIndicatorsP
       {/* Streak */}
       <div className="text-center">
         <p
-          className={`text-lg font-bold leading-none transition-colors ${
+          className={`text-base sm:text-lg font-bold leading-none transition-colors ${
             streakAtRisk ? 'text-amber-400' : 'text-white'
           }`}
         >
           {streakCount}
         </p>
         <p
-          className={`text-xs transition-colors ${
+          className={`text-[10px] sm:text-xs transition-colors ${
             streakAtRisk ? 'text-amber-500' : 'text-muted'
           }`}
         >
-          {streakAtRisk ? 'protect streak' : 'day streak'}
+          {streakAtRisk ? 'protect' : 'day'} streak
         </p>
       </div>
 

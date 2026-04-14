@@ -6,9 +6,10 @@ import TableCell from './TableCell';
 interface DashboardTableProps {
   quests: QuestHistoryRow[];
   month: string; // "YYYY-MM"
+  label?: string;
 }
 
-export default function DashboardTable({ quests, month }: DashboardTableProps) {
+export default function DashboardTable({ quests, month, label = 'Quest' }: DashboardTableProps) {
   const [year, monthNum] = month.split('-').map(Number);
   const daysInMonth = new Date(year, monthNum, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -31,7 +32,7 @@ export default function DashboardTable({ quests, month }: DashboardTableProps) {
   if (quests.length === 0) {
     return (
       <p className="text-muted text-sm text-center py-16">
-        No quest data for this month yet.
+        No {label.toLowerCase()} data for this month yet.
       </p>
     );
   }
@@ -42,14 +43,14 @@ export default function DashboardTable({ quests, month }: DashboardTableProps) {
         <thead>
           <tr>
             {/* Top-left corner */}
-            <th className="sticky left-0 z-30 bg-bg min-w-[140px] w-[140px] px-4 py-3 text-left border-b border-r border-border">
-              <span className="text-xs font-medium text-muted uppercase tracking-wide">Quest</span>
+            <th className="sticky left-0 z-30 bg-bg min-w-[100px] w-[100px] sm:min-w-[140px] sm:w-[140px] px-3 sm:px-4 py-3 text-left border-b border-r border-border">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">{label}</span>
             </th>
             {/* Day number headers */}
             {days.map((day) => (
               <th
                 key={day}
-                className={`sticky top-0 z-20 bg-bg min-w-[40px] w-[40px] py-3 text-center border-b border-border ${
+                className={`sticky top-0 z-20 bg-bg min-w-[34px] w-[34px] sm:min-w-[40px] sm:w-[40px] py-3 text-center border-b border-border ${
                   isToday(day) ? 'text-accent-light' : 'text-muted'
                 }`}
               >
@@ -63,7 +64,7 @@ export default function DashboardTable({ quests, month }: DashboardTableProps) {
             <tr key={quest.questId}>
               {/* Quest name — sticky left */}
               <td
-                className={`sticky left-0 z-10 bg-bg px-4 py-2 text-sm font-medium text-white border-r border-border whitespace-nowrap ${
+                className={`sticky left-0 z-10 bg-bg px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white border-r border-border whitespace-nowrap ${
                   rowIdx < quests.length - 1 ? 'border-b' : ''
                 }`}
               >
@@ -73,7 +74,7 @@ export default function DashboardTable({ quests, month }: DashboardTableProps) {
               {days.map((day) => (
                 <td
                   key={day}
-                  className={`px-0.5 py-1 text-center ${rowIdx < quests.length - 1 ? 'border-b border-border' : ''}`}
+                  className={`px-0 py-1 text-center ${rowIdx < quests.length - 1 ? 'border-b border-border' : ''}`}
                 >
                   <TableCell
                     entry={quest.history[dateStr(day)]}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { fetchQuestHistory, QuestHistoryRow } from '@/lib/api';
+import { fetchQuestHistory, fetchChallengeHistory, QuestHistoryRow, ChallengeHistoryRow } from '@/lib/api';
 import Header from '@/components/Header';
 import DashboardTable from '@/components/DashboardTable';
 
@@ -28,6 +28,7 @@ export default function HistoryPage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(currentMonth);
   const [quests, setQuests] = useState<QuestHistoryRow[]>([]);
+  const [challenges, setChallenges] = useState<ChallengeHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,8 +41,12 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchQuestHistory(month);
-      setQuests(data.quests);
+      const [questData, challengeData] = await Promise.all([
+        fetchQuestHistory(month),
+        fetchChallengeHistory(month),
+      ]);
+      setQuests(questData.quests);
+      setChallenges(challengeData.challenges);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load history');
     } finally {
@@ -64,7 +69,7 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-bg">
       <Header />
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         {/* Month navigation */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -110,9 +115,31 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Table */}
+        {/* Tables */}
         {!loading && !error && (
-          <DashboardTable quests={quests} month={month} />
+          <div className="space-y-10">
+            <section>
+              <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Quests</h3>
+              <DashboardTable quests={quests} month={month} label="Quest" />
+            </section>
+            <section>
+              <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Daily Challenges</h3>
+              <DashboardTable
+                quests={challenges.map((c) => ({
+                  questId: c.key,
+                  title: c.title,
+                  history: Object.fromEntries(
+                    Object.entries(c.history).map(([date, entry]) => [
+                      date,
+                      { completed: entry.completed, currentValue: 0 },
+                    ])
+                  ),
+                }))}
+                month={month}
+                label="Challenge"
+              />
+            </section>
+          </div>
         )}
       </main>
     </div>

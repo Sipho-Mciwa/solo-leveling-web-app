@@ -107,6 +107,10 @@ export function completeChallenge(docId: string, challengeKey: string) {
   });
 }
 
+export function fetchChallengeHistory(month: string) {
+  return apiFetch<ChallengeHistoryResponse>(`/api/challenges/history?month=${month}`);
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -251,6 +255,20 @@ export interface DailyChallengesDoc {
   date: string;
   challenges: DailyChallenge[];
   bonusAwarded: boolean;
+}
+
+export interface ChallengeHistoryEntry {
+  completed: boolean;
+}
+
+export interface ChallengeHistoryRow {
+  key: string;
+  title: string;
+  history: Record<string, ChallengeHistoryEntry>; // key = "YYYY-MM-DD"
+}
+
+export interface ChallengeHistoryResponse {
+  challenges: ChallengeHistoryRow[];
 }
 
 export interface ChallengeCompleteResult {

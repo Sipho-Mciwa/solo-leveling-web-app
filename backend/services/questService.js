@@ -110,18 +110,21 @@ async function generateDailyQuests(userId) {
 
 async function seedDefaultQuests(_userId) {
   const batch = db.batch();
-  const refs = [];
 
   for (const q of DEFAULT_QUESTS) {
-    const ref = db.collection('quests').doc();
+    // Use a deterministic ID so re-seeding is idempotent (no duplicates)
+    const docId = `default_${q.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+    const ref = db.collection('quests').doc(docId);
     batch.set(ref, { ...q, userId: null }); // shared global quests
-    refs.push(ref);
   }
 
   await batch.commit();
 
   // Return as mock docs for immediate use
-  return refs.map((ref, i) => ({ id: ref.id, data: () => DEFAULT_QUESTS[i] }));
+  return DEFAULT_QUESTS.map((q) => {
+    const docId = `default_${q.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+    return { id: docId, data: () => q };
+  });
 }
 
 /**
@@ -220,14 +223,32 @@ async function getQuestHistory(userId, month) {
     questIds.map((id) => db.collection('quests').doc(id).get())
   );
 
-  const quests = questSnaps
+  const rawQuests = questSnaps
     .filter((snap) => snap.exists)
     .map((snap) => ({
       questId: snap.id,
       title: snap.data().title,
       history: byQuestId[snap.id],
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title));
+    }));
+
+  // Deduplicate by title — if the same quest was seeded multiple times (duplicate
+  // templates in Firestore), merge their day-by-day history into a single row,
+  // preferring completed entries when the same date appears in more than one copy.
+  const byTitle = {};
+  for (const q of rawQuests) {
+    if (!byTitle[q.title]) {
+      byTitle[q.title] = q;
+    } else {
+      for (const [date, entry] of Object.entries(q.history)) {
+        const existing = byTitle[q.title].history[date];
+        if (!existing || entry.completed) {
+          byTitle[q.title].history[date] = entry;
+        }
+      }
+    }
+  }
+
+  const quests = Object.values(byTitle).sort((a, b) => a.title.localeCompare(b.title));
 
   return { quests };
 }

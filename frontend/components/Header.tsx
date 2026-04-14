@@ -26,9 +26,14 @@ export default function Header() {
 
   return (
     <header className="border-b border-border">
-      {/* Stats row */}
-      <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
-        <div>
+      {/* Stats row
+          Mobile:  row 1 = [Brand | Streak+Risk+SignOut]
+                   row 2 = [Level+XP bar — full width]
+          Desktop: single row = [Brand] [XP bar] [Streak+Risk+SignOut]
+      */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap sm:flex-nowrap items-center gap-x-6 gap-y-2">
+        {/* Brand — order 1 on mobile, order 1 on desktop */}
+        <div className="order-1">
           <h1 className="text-sm font-semibold tracking-widest text-accent-light uppercase">
             Solo Leveling
           </h1>
@@ -37,7 +42,8 @@ export default function Header() {
           )}
         </div>
 
-        <div className="flex-1 max-w-xs">
+        {/* XP bar — order 3 (full-width second row) on mobile, order 2 (middle) on desktop */}
+        <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1 sm:max-w-xs">
           <div className="flex justify-between text-xs text-muted mb-1">
             <span className="flex items-center gap-1.5">
               Level {level}
@@ -48,7 +54,8 @@ export default function Header() {
           <ProgressBar current={xp} target={xpNeeded} color="bg-accent" />
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Streak + Risk + Sign out — order 2 (pushed right) on mobile, order 3 on desktop */}
+        <div className="order-2 ml-auto sm:order-3 sm:ml-0 flex items-center gap-3">
           <RiskIndicators streakCount={streakCount} profile={userProfile} />
           <button
             onClick={logout}
@@ -60,12 +67,12 @@ export default function Header() {
       </div>
 
       {/* Nav tabs */}
-      <div className="max-w-4xl mx-auto px-6 flex gap-1">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 flex gap-1">
         {NAV_TABS.map((tab) => (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               pathname === tab.href
                 ? 'border-accent text-white'
                 : 'border-transparent text-muted hover:text-white'

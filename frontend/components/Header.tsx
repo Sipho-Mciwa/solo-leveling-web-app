@@ -25,7 +25,7 @@ export default function Header() {
   const xpNeeded = xpRequiredForLevel(level);
 
   return (
-    <header className="border-b border-border">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
       {/* Stats row
           Mobile:  row 1 = [Brand | Streak+Risk+SignOut]
                    row 2 = [Level+XP bar — full width]

@@ -3,6 +3,7 @@ const { addXp } = require('./xpService');
 const { updateStreak } = require('./streakService');
 const { applyDifficultyScaling } = require('./difficultyService');
 const { updateUserRank } = require('./rankService');
+const { syncBossFromQuest } = require('./bossService');
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -149,10 +150,16 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
   const target = dq.currentTarget ?? quest.targetValue;
   const isComplete = newValue >= target;
 
+  // Delta logged this submission — used to auto-update the weekly boss
+  const delta = newValue - (dq.currentValue || 0);
+
   await dqRef.update({
     currentValue: newValue,
     completed: isComplete,
   });
+
+  // Silently sync weekly boss if this quest type matches
+  syncBossFromQuest(userId, quest.title, delta).catch(() => {});
 
   let xpResult = null;
   let streakResult = null;

@@ -23,6 +23,14 @@ interface Props {
 
 const STAT_ORDER: StatKey[] = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
 
+const STAT_LABELS: Record<StatKey, string> = {
+  PHY: 'PHY',
+  SPD: 'SPD',
+  STAMINA: 'STA',
+  DISCIPLINE: 'DIS',
+  INTELLECT: 'INT',
+};
+
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 function StatTooltip({ active, payload }: TooltipProps<number, string>) {
@@ -55,7 +63,7 @@ function AxisTick(
   const { x = 0, y = 0, payload, textAnchor = 'middle' } = props;
   // Recharts requires a ReactElement return — use empty text if no payload
   if (!payload) return <text />;
-  const isWeak = payload.value === weakestStat;
+  const isWeak = weakestStat != null && payload.value === STAT_LABELS[weakestStat];
   return (
     <text
       x={x}
@@ -74,7 +82,7 @@ function AxisTick(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function StatsRadarChart({ stats, weakestStat }: Props) {
-  const data = STAT_ORDER.map((key) => ({ subject: key, value: stats[key] }));
+  const data = STAT_ORDER.map((key) => ({ subject: STAT_LABELS[key], value: stats[key] }));
 
   return (
     <motion.div
@@ -150,7 +158,7 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
                   isWeak ? 'text-amber-400' : 'text-muted'
                 }`}
               >
-                {key}
+                {STAT_LABELS[key]}
               </span>
               <span
                 className={`text-sm font-bold tabular-nums leading-none ${
@@ -170,7 +178,7 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
       {/* Weakest stat callout */}
       {weakestStat && (
         <p className="text-[10px] text-amber-400/70 text-center mt-2">
-          {weakestStat} is your weakest attribute
+          {STAT_LABELS[weakestStat]} is your weakest attribute
         </p>
       )}
     </motion.div>

@@ -108,10 +108,49 @@ async function completeChallenge(docId, userId, challengeKey) {
   };
 }
 
+/**
+ * Returns monthly challenge history grouped by challenge key, with per-day completion data.
+ * Requires a Firestore composite index on: dailyChallenges (userId ASC, date ASC).
+ * If the query fails with "index required", use the URL in the error to create it.
+ */
+async function getChallengeHistory(userId, month) {
+  const [year, monthNum] = month.split('-').map(Number);
+  const daysInMonth = new Date(year, monthNum, 0).getDate();
+  const startDate = `${month}-01`;
+  const endDate = `${month}-${String(daysInMonth).padStart(2, '0')}`;
+
+  const snapshot = await db
+    .collection('dailyChallenges')
+    .where('userId', '==', userId)
+    .where('date', '>=', startDate)
+    .where('date', '<=', endDate)
+    .get();
+
+  if (snapshot.empty) return { challenges: [] };
+
+  // Build: { [key]: { key, title, history: { [date]: { completed } } } }
+  const byKey = {};
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    for (const c of data.challenges) {
+      if (!byKey[c.key]) {
+        byKey[c.key] = { key: c.key, title: c.title, history: {} };
+      }
+      byKey[c.key].history[data.date] = { completed: c.completed };
+    }
+  }
+
+  // Preserve canonical CHALLENGES order
+  const challenges = CHALLENGES.filter((c) => byKey[c.key]).map((c) => byKey[c.key]);
+
+  return { challenges };
+}
+
 module.exports = {
   generateDailyChallenges,
   getTodayChallenges,
   completeChallenge,
+  getChallengeHistory,
   CHALLENGES,
   ALL_COMPLETE_BONUS,
 };

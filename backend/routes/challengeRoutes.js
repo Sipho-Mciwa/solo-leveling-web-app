@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getTodayChallenges, generateDailyChallenges, completeChallenge } = require('../services/challengeService');
+const { getTodayChallenges, generateDailyChallenges, completeChallenge, getChallengeHistory } = require('../services/challengeService');
 const { auth } = require('../config/firebase');
 
 async function authenticate(req, res, next) {
@@ -17,6 +17,20 @@ async function authenticate(req, res, next) {
     res.status(401).json({ error: 'Invalid token' });
   }
 }
+
+// GET /api/challenges/history?month=YYYY-MM
+router.get('/history', authenticate, async (req, res) => {
+  const { month } = req.query;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month query param required (YYYY-MM)' });
+  }
+  try {
+    const result = await getChallengeHistory(req.userId, month);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/challenges/today
 router.get('/today', authenticate, async (req, res) => {

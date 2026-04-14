@@ -9,11 +9,12 @@ interface TableCellProps {
 }
 
 export default function TableCell({ entry, isToday, isFuture }: TableCellProps) {
+  const base = `w-7 h-7 sm:w-8 sm:h-8 rounded-md mx-auto`;
+  const ring = isToday ? 'ring-1 ring-accent/50' : '';
+
   // Future days — blank
   if (isFuture) {
-    return (
-      <div className={`w-8 h-8 rounded-md mx-auto ${isToday ? 'ring-1 ring-accent/50' : ''}`} />
-    );
+    return <div className={`${base} ${ring}`} />;
   }
 
   // Completed
@@ -21,10 +22,10 @@ export default function TableCell({ entry, isToday, isFuture }: TableCellProps) 
     return (
       <div
         title="Completed"
-        className={`w-8 h-8 rounded-md mx-auto flex items-center justify-center bg-emerald-500/20 ${isToday ? 'ring-1 ring-accent/50' : ''}`}
+        className={`${base} flex items-center justify-center bg-emerald-500/20 ${ring}`}
       >
         <svg
-          className="w-4 h-4 text-emerald-400"
+          className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -41,9 +42,9 @@ export default function TableCell({ entry, isToday, isFuture }: TableCellProps) 
     return (
       <div
         title={`In progress (${entry.currentValue})`}
-        className={`w-8 h-8 rounded-md mx-auto flex items-center justify-center bg-amber-500/10 ${isToday ? 'ring-1 ring-accent/50' : ''}`}
+        className={`${base} flex items-center justify-center bg-amber-500/10 ${ring}`}
       >
-        <div className="w-2 h-2 rounded-full bg-amber-400/70" />
+        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400/70" />
       </div>
     );
   }
@@ -52,9 +53,9 @@ export default function TableCell({ entry, isToday, isFuture }: TableCellProps) 
   return (
     <div
       title="Not completed"
-      className={`w-8 h-8 rounded-md mx-auto flex items-center justify-center ${isToday ? 'ring-1 ring-accent/50' : ''}`}
+      className={`${base} flex items-center justify-center ${ring}`}
     >
-      <div className="w-1.5 h-1.5 rounded-full bg-subtle" />
+      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-subtle" />
     </div>
   );
 }

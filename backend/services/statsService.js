@@ -107,12 +107,16 @@ function calculateINTELLECT(challengeDocs) {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+const STAT_KEYS = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
+
 /**
- * Returns all five hunter stats for a user, normalised to 0–100.
+ * Returns all five hunter stats (0–100) plus week-over-week delta.
+ * Uses a single 14-day Firestore read, split in memory for the delta.
  */
 async function getUserStats(userId) {
-  const startDate = nDaysAgo(WINDOW - 1);
-  const endDate = todayStr();
+  const startDate = nDaysAgo(WINDOW - 1); // 13 days ago (full window)
+  const midDate   = nDaysAgo(6);          // 6 days ago  (last-7 / prev-7 boundary)
+  const endDate   = todayStr();
 
   // Two parallel Firestore reads: quests + challenges
   const [questsSnap, challengesSnap] = await Promise.all([
@@ -130,16 +134,46 @@ async function getUserStats(userId) {
       .get(),
   ]);
 
-  const questDocs = questsSnap.docs.map((d) => d.data());
-  const challengeDocs = challengesSnap.docs.map((d) => d.data());
+  const questDocs      = questsSnap.docs.map((d) => d.data());
+  const challengeDocs  = challengesSnap.docs.map((d) => d.data());
 
-  return {
+  // Split into last-7 vs prev-7 for delta computation (no extra reads)
+  const recentQuests     = questDocs.filter((q) => q.date >= midDate);
+  const prevQuests       = questDocs.filter((q) => q.date <  midDate);
+  const recentChallenges = challengeDocs.filter((c) => c.date >= midDate);
+  const prevChallenges   = challengeDocs.filter((c) => c.date <  midDate);
+
+  // Main stats: full 14-day window
+  const current = {
     PHY:        calculatePHY(questDocs),
     SPD:        calculateSPD(questDocs),
     STAMINA:    calculateSTAMINA(questDocs),
     DISCIPLINE: calculateDISCIPLINE(challengeDocs),
     INTELLECT:  calculateINTELLECT(challengeDocs),
   };
+
+  // Delta: last-7 minus prev-7
+  const recent = {
+    PHY:        calculatePHY(recentQuests),
+    SPD:        calculateSPD(recentQuests),
+    STAMINA:    calculateSTAMINA(recentQuests),
+    DISCIPLINE: calculateDISCIPLINE(recentChallenges),
+    INTELLECT:  calculateINTELLECT(recentChallenges),
+  };
+  const prev = {
+    PHY:        calculatePHY(prevQuests),
+    SPD:        calculateSPD(prevQuests),
+    STAMINA:    calculateSTAMINA(prevQuests),
+    DISCIPLINE: calculateDISCIPLINE(prevChallenges),
+    INTELLECT:  calculateINTELLECT(prevChallenges),
+  };
+
+  const delta = {};
+  for (const key of STAT_KEYS) {
+    delta[key] = recent[key] - prev[key];
+  }
+
+  return { ...current, delta };
 }
 
 module.exports = {

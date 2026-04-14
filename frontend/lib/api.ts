@@ -285,12 +285,21 @@ export interface ChallengeCompleteResult {
   allComplete: boolean;
 }
 
-export interface HunterStats {
-  PHY:        number; // 0–100
+export interface StatDelta {
+  PHY:        number; // last-7 minus prev-7 (positive = improving)
   SPD:        number;
   STAMINA:    number;
   DISCIPLINE: number;
   INTELLECT:  number;
+}
+
+export interface HunterStats {
+  PHY:        number; // 0–100, full 14-day window
+  SPD:        number;
+  STAMINA:    number;
+  DISCIPLINE: number;
+  INTELLECT:  number;
+  delta:      StatDelta;
 }
 
 export interface PenaltyQuest {

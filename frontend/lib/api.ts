@@ -116,6 +116,19 @@ export function fetchStats() {
   return apiFetch<HunterStats>('/api/stats');
 }
 
+// Strava
+export function fetchStravaStatus() {
+  return apiFetch<{ connected: boolean }>('/api/strava/status');
+}
+
+export function fetchStravaAuthUrl() {
+  return apiFetch<{ url: string }>('/api/strava/auth');
+}
+
+export function syncStrava() {
+  return apiFetch<StravaSyncResponse>('/api/strava/sync');
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -300,6 +313,24 @@ export interface HunterStats {
   DISCIPLINE: number;
   INTELLECT:  number;
   delta:      StatDelta;
+}
+
+export interface StravaSyncActivityResult {
+  activityId: string;
+  distanceKm: number;
+  date: string;
+  questFound: boolean;
+  alreadyCompleted?: boolean;
+  belowTarget?: boolean;
+  completed?: boolean;
+  xp?: { xp: number; level: number };
+  bonusXp?: number;
+  target?: number;
+}
+
+export interface StravaSyncResponse {
+  processed: number;
+  results: StravaSyncActivityResult[];
 }
 
 export interface PenaltyQuest {

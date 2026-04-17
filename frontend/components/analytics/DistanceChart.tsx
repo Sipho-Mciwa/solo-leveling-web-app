@@ -59,10 +59,13 @@ export default function DistanceChart({ data }: DistanceChartProps) {
           <Tooltip
             contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: '#999' }}
-            formatter={(value: number, _: string, props: { payload: RunningWeeklyData }) => [
-              `${value} km  ·  ${props.payload.runs} run${props.payload.runs !== 1 ? 's' : ''}${props.payload.avgPaceLabel ? `  ·  avg ${props.payload.avgPaceLabel} /km` : ''}`,
-              'Distance',
-            ]}
+            formatter={(value: number, _: string, item: { payload?: RunningWeeklyData }) => {
+              const p = item.payload;
+              const detail = p
+                ? `  ·  ${p.runs} run${p.runs !== 1 ? 's' : ''}${p.avgPaceLabel ? `  ·  avg ${p.avgPaceLabel} /km` : ''}`
+                : '';
+              return [`${value} km${detail}`, 'Distance'] as [string, string];
+            }}
           />
           <Bar dataKey="totalDistance" radius={[4, 4, 0, 0]}>
             {data.map((entry, i) => (

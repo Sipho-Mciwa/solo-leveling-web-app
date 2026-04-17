@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { updateQuestProgress } = require('./questService');
+const { invalidateCache } = require('./runningAnalyticsService');
 
 const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
 const STRAVA_API_URL    = 'https://www.strava.com/api/v3';
@@ -101,9 +102,10 @@ async function processNewActivities(userId, runs) {
 
     await db.collection('processedActivities').add({
       userId,
-      activityId: String(run.id),
-      distance:   run.distance,
-      date:       runDate,
+      activityId:  String(run.id),
+      distance:    run.distance,
+      movingTime:  run.moving_time ?? 0,
+      date:        runDate,
     });
 
     results.push({ activityId: String(run.id), distanceKm, date: runDate, ...questResult });
@@ -154,6 +156,7 @@ async function syncStravaActivities(userId) {
   const result     = await processNewActivities(userId, runs);
 
   await updateLastSync(userId);
+  if (result.processed > 0) invalidateCache(userId);
   return result;
 }
 

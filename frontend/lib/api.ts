@@ -133,6 +133,10 @@ export function syncStravaOnLogin() {
   return apiFetch<{ started: boolean }>('/api/strava/sync-on-login', { method: 'POST' });
 }
 
+export function fetchRunningAnalytics() {
+  return apiFetch<RunningAnalytics>('/api/analytics/running');
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -319,6 +323,14 @@ export interface HunterStats {
   delta:      StatDelta;
 }
 
+export interface XPResult {
+  xp: number;
+  level: number;
+  xpGained: number;
+  leveledUp: boolean;
+  previousLevel: number;
+}
+
 export interface StravaSyncActivityResult {
   activityId: string;
   distanceKm: number;
@@ -327,7 +339,7 @@ export interface StravaSyncActivityResult {
   alreadyCompleted?: boolean;
   belowTarget?: boolean;
   completed?: boolean;
-  xp?: { xp: number; level: number };
+  xp?: XPResult;
   bonusXp?: number;
   target?: number;
 }
@@ -335,6 +347,33 @@ export interface StravaSyncActivityResult {
 export interface StravaSyncResponse {
   processed: number;
   results: StravaSyncActivityResult[];
+}
+
+export interface RunningWeeklyData {
+  week: string;
+  weekStart: string;
+  runs: number;
+  totalDistance: number;
+  avgPace: number | null;
+  avgPaceLabel: string | null;
+}
+
+export interface RunningPaceEntry {
+  date: string;
+  distanceKm: number;
+  pace: number | null;
+  paceLabel: string | null;
+}
+
+export interface RunningAnalytics {
+  weeklyData: RunningWeeklyData[];
+  paceTrend: RunningPaceEntry[];
+  totalRuns: number;
+  totalDistanceKm: number;
+  avgPaceMinKm: number | null;
+  avgPaceLabel: string | null;
+  consistencyScore: number;
+  insights: string[];
 }
 
 export interface PenaltyQuest {

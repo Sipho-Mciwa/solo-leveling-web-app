@@ -78,10 +78,11 @@ export default function PaceChart({ data, avgPaceLabel }: PaceChartProps) {
           <Tooltip
             contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: '#999' }}
-            formatter={(value: number, _name: string, props: { payload: { km: number } }) => {
+            formatter={(value: number, _name: string, item: { payload?: { km: number } }) => {
               const m = Math.floor(value);
               const s = Math.round((value - m) * 60);
-              return [`${m}:${String(s).padStart(2, '0')} /km  ·  ${props.payload.km} km`, 'Pace'];
+              const km = item.payload?.km ?? '';
+              return [`${m}:${String(s).padStart(2, '0')} /km${km ? `  ·  ${km} km` : ''}`, 'Pace'] as [string, string];
             }}
           />
           <ReferenceLine

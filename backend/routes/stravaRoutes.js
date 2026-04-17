@@ -92,4 +92,11 @@ router.get('/sync', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/strava/sync-on-login — fire-and-forget sync triggered at login
+// Returns immediately; sync runs in the background without blocking the login flow
+router.post('/sync-on-login', authenticate, (req, res) => {
+  res.json({ started: true });
+  syncStravaActivities(req.userId).catch(() => {});
+});
+
 module.exports = router;

@@ -129,6 +129,10 @@ export function syncStrava() {
   return apiFetch<StravaSyncResponse>('/api/strava/sync');
 }
 
+export function syncStravaOnLogin() {
+  return apiFetch<{ started: boolean }>('/api/strava/sync-on-login', { method: 'POST' });
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuests } from '@/context/QuestContext';
 import {
@@ -10,19 +10,33 @@ import {
   StravaSyncResponse,
 } from '@/lib/api';
 
+const AUTO_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
 export default function StravaSyncButton() {
   const { refresh } = useQuests();
-  const [connected, setConnected] = useState<boolean | null>(null);
-  const [syncing, setSyncing]     = useState(false);
-  const [result, setResult]       = useState<StravaSyncResponse | null>(null);
-  const [error, setError]         = useState<string | null>(null);
+  const [connected, setConnected]       = useState<boolean | null>(null);
+  const [syncing, setSyncing]           = useState(false);
+  const [autoSyncing, setAutoSyncing]   = useState(false);
+  const [result, setResult]             = useState<StravaSyncResponse | null>(null);
+  const [error, setError]               = useState<string | null>(null);
+
+  // Dismiss result after 8 seconds
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function scheduleResultDismiss() {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => setResult(null), 8000);
+  }
+
+  useEffect(() => () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); }, []);
+
+  // ─── Initial status + OAuth callback handling ───────────────────────────────
 
   useEffect(() => {
     fetchStravaStatus()
       .then((r) => setConnected(r.connected))
       .catch(() => setConnected(false));
 
-    // Handle redirect back from Strava OAuth
     const params = new URLSearchParams(window.location.search);
     const stravaParam = params.get('strava');
     if (stravaParam === 'connected') {
@@ -34,6 +48,36 @@ export default function StravaSyncButton() {
     }
   }, []);
 
+  // ─── Core sync logic ────────────────────────────────────────────────────────
+
+  const runSync = useCallback(async (isAuto = false) => {
+    if (isAuto) setAutoSyncing(true); else setSyncing(true);
+    if (!isAuto) { setResult(null); setError(null); }
+
+    try {
+      const data = await syncStrava();
+      if (data.processed > 0) {
+        setResult(data);
+        scheduleResultDismiss();
+        await refresh();
+      }
+    } catch (err: unknown) {
+      if (!isAuto) setError(err instanceof Error ? err.message : 'Sync failed.');
+    } finally {
+      if (isAuto) setAutoSyncing(false); else setSyncing(false);
+    }
+  }, [refresh]);
+
+  // ─── 10-minute auto-sync interval ───────────────────────────────────────────
+
+  useEffect(() => {
+    if (!connected) return;
+    const id = setInterval(() => runSync(true), AUTO_SYNC_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [connected, runSync]);
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
   async function handleConnect() {
     setError(null);
     try {
@@ -44,22 +88,9 @@ export default function StravaSyncButton() {
     }
   }
 
-  async function handleSync() {
-    setSyncing(true);
-    setResult(null);
-    setError(null);
-    try {
-      const data = await syncStrava();
-      setResult(data);
-      if (data.processed > 0) await refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Sync failed.');
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   if (connected === null) return null;
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="mt-4">
@@ -72,16 +103,34 @@ export default function StravaSyncButton() {
           Connect Strava
         </button>
       ) : (
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#FC4C02]/10 border border-[#FC4C02]/30 text-[#FC4C02] text-sm font-semibold hover:bg-[#FC4C02]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <StravaIcon />
-          {syncing ? 'Syncing...' : 'Sync with Strava'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => runSync(false)}
+            disabled={syncing || autoSyncing}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#FC4C02]/10 border border-[#FC4C02]/30 text-[#FC4C02] text-sm font-semibold hover:bg-[#FC4C02]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <StravaIcon />
+            {syncing ? 'Syncing...' : 'Sync with Strava'}
+          </button>
+
+          {/* Auto-sync pulse indicator */}
+          <AnimatePresence>
+            {autoSyncing && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1.5 text-[10px] text-[#FC4C02]/60 whitespace-nowrap"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FC4C02]/60 animate-pulse" />
+                syncing
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
+      {/* Results */}
       <AnimatePresence>
         {result && result.processed > 0 && (
           <motion.div
@@ -99,31 +148,15 @@ export default function StravaSyncButton() {
                 <span className="text-green-400">
                   Run detected: {r.distanceKm.toFixed(1)} km
                   {r.completed && ' — Quest Completed'}
-                  {r.belowTarget && ` — Target: ${r.target} km`}
+                  {r.belowTarget && ` — below ${r.target} km target`}
                 </span>
                 <div className="flex gap-1.5 text-xs font-bold">
-                  {r.xp && (
-                    <span className="text-accent-light">+50 XP</span>
-                  )}
-                  {r.bonusXp && (
-                    <span className="text-yellow-400">+{r.bonusXp} bonus</span>
-                  )}
+                  {r.xp && <span className="text-accent-light">+50 XP</span>}
+                  {r.bonusXp && <span className="text-yellow-400">+{r.bonusXp} bonus</span>}
                 </div>
               </div>
             ))}
           </motion.div>
-        )}
-
-        {result && result.processed === 0 && (
-          <motion.p
-            key="no-runs"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="mt-2 text-center text-xs text-muted"
-          >
-            No new runs found.
-          </motion.p>
         )}
 
         {error && (

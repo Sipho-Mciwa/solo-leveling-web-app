@@ -11,6 +11,7 @@ const bossRoutes       = require('./routes/bossRoutes');
 const challengeRoutes  = require('./routes/challengeRoutes');
 const statsRoutes      = require('./routes/statsRoutes');
 const stravaRoutes     = require('./routes/stravaRoutes');
+const { startStravaCron } = require('./cron/stravaCron');
 
 const app = express();
 
@@ -48,4 +49,7 @@ app.use('/api/strava',     stravaRoutes);
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  startStravaCron();
+});

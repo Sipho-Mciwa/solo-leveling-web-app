@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getOverview, getQuestBreakdown, getHeatmap } = require('../services/analyticsService');
+const { getRunningAnalytics } = require('../services/runningAnalyticsService');
 const { auth } = require('../config/firebase');
 
 async function authenticate(req, res, next) {
@@ -39,6 +40,15 @@ router.get('/quests', authenticate, async (req, res) => {
 router.get('/heatmap', authenticate, async (req, res) => {
   try {
     res.json(await getHeatmap(req.userId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/analytics/running
+router.get('/running', authenticate, async (req, res) => {
+  try {
+    res.json(await getRunningAnalytics(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -7,6 +7,7 @@ import ProgressBar from './ProgressBar';
 import { useQuests } from '@/context/QuestContext';
 import { useAuth } from '@/context/AuthContext';
 import RewardPopup from './RewardPopup';
+import StravaSyncButton from './StravaSyncButton';
 import { triggerRandomReward, RewardResult } from '@/lib/engagementService';
 
 interface QuestCardProps {
@@ -186,6 +187,9 @@ export default function QuestCard({ quest }: QuestCardProps) {
           </motion.form>
         )}
       </AnimatePresence>
+
+      {/* Strava sync — Running quest only, while incomplete */}
+      {quest.title === 'Running' && !quest.completed && <StravaSyncButton />}
 
       {/* Bonus reward popup */}
       {reward && <RewardPopup reward={reward} onDismiss={() => setReward(null)} />}

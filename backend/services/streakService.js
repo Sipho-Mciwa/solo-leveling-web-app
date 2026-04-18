@@ -24,15 +24,20 @@ async function updateStreak(userId) {
   if (lastActive === todayStr) return { streakCount: user.streakCount };
 
   let newStreak;
+  const updates = { lastActiveDate: todayStr };
+
   if (lastActive === yesterday()) {
-    // Consecutive day — extend streak
     newStreak = (user.streakCount || 0) + 1;
   } else {
-    // Missed at least one day — reset
     newStreak = 1;
+    // Track how many times the user recovers after breaking a streak
+    if ((user.streakCount || 0) > 0) {
+      updates.recoverCount = (user.recoverCount || 0) + 1;
+    }
   }
 
-  await userRef.update({ streakCount: newStreak, lastActiveDate: todayStr });
+  updates.streakCount = newStreak;
+  await userRef.update(updates);
 
   return { streakCount: newStreak };
 }

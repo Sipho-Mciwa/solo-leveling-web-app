@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { QuestHistoryRow } from '@/lib/api';
 import TableCell from './TableCell';
 
@@ -14,8 +15,21 @@ export default function DashboardTable({ quests, month, label = 'Quest' }: Dashb
   const daysInMonth = new Date(year, monthNum, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [todayYear, todayMonth, todayDay] = todayStr.split('-').map(Number);
+  const now = new Date();
+  const todayYear  = now.getFullYear();
+  const todayMonth = now.getMonth() + 1;
+  const todayDay   = now.getDate();
+  const todayStr   = `${todayYear}-${String(todayMonth).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const todayColRef = useRef<HTMLTableCellElement>(null);
+
+  // Scroll so today's column is the first visible column after the sticky name column
+  useEffect(() => {
+    if (!scrollRef.current || !todayColRef.current || quests.length === 0) return;
+    const stickyWidth = scrollRef.current.querySelector('th')?.offsetWidth ?? 100;
+    scrollRef.current.scrollLeft = todayColRef.current.offsetLeft - stickyWidth;
+  }, [quests]);
 
   function dateStr(day: number) {
     return `${month}-${String(day).padStart(2, '0')}`;
@@ -38,7 +52,7 @@ export default function DashboardTable({ quests, month, label = 'Quest' }: Dashb
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div ref={scrollRef} className="overflow-x-auto rounded-xl border border-border">
       <table className="border-separate border-spacing-0 min-w-full">
         <thead>
           <tr>
@@ -50,6 +64,7 @@ export default function DashboardTable({ quests, month, label = 'Quest' }: Dashb
             {days.map((day) => (
               <th
                 key={day}
+                ref={isToday(day) ? todayColRef : undefined}
                 className={`sticky top-0 z-20 bg-bg min-w-[34px] w-[34px] sm:min-w-[40px] sm:w-[40px] py-3 text-center border-b border-border ${
                   isToday(day) ? 'text-accent-light' : 'text-muted'
                 }`}

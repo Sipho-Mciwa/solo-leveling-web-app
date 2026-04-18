@@ -60,6 +60,12 @@ export function setActiveTitle(title: string) {
     body: JSON.stringify({ title }),
   });
 }
+export function fetchRankProgress() {
+  return apiFetch<RankProgress>('/api/rank/progress');
+}
+export function fetchTitleProgress() {
+  return apiFetch<TitleProgressResponse>('/api/rank/titles/progress');
+}
 
 // Boss
 export function generateBossQuest() {
@@ -253,6 +259,39 @@ export interface RankData {
   activeTitle: string | null;
 }
 
+export interface RankCriterion {
+  label: string;
+  current: number;
+  target: number;
+  met: boolean;
+  type: 'level' | 'streak' | 'stat';
+}
+
+export interface RankProgress {
+  currentRank: Rank;
+  nextRank: Rank | null;
+  criteria: RankCriterion[];
+  metCount: number;
+  totalCount: number;
+  canPromote: boolean;
+}
+
+export interface TitleDefinition {
+  id: string;
+  name: string;
+  category: string;
+  tier: number | 'rare';
+  description: string;
+  unlocked: boolean;
+  active: boolean;
+  progress: { current: number; target: number } | null;
+}
+
+export interface TitleProgressResponse {
+  titles: TitleDefinition[];
+  categories: string[];
+}
+
 export interface BossQuest {
   id: string;
   userId: string;
@@ -260,6 +299,7 @@ export interface BossQuest {
   title: string;
   description: string;
   questType: string;
+  mixedTypes: string[] | null;
   unit: string;
   targetValue: number;
   currentValue: number;

@@ -23,6 +23,9 @@ function generateDateRange(startDate, endDate) {
   return dates;
 }
 
+// Quest must appear at least this many times to qualify for Weak link / Strongest habit insights
+const MIN_QUEST_APPEARANCES = 7;
+
 // ─── Core data fetch ──────────────────────────────────────────────────────────
 
 async function fetchLast30Days(userId) {
@@ -55,7 +58,7 @@ function groupByDate(docs) {
 
 // ─── Insights engine ──────────────────────────────────────────────────────────
 
-function generateInsights(overallRate, activeDailyRates, questStats) {
+function generateInsights(overallRate, activeDailyRates, questStats, weekTrend) {
   const insights = [];
 
   if (activeDailyRates.length === 0) {
@@ -71,11 +74,11 @@ function generateInsights(overallRate, activeDailyRates, questStats) {
     insights.push({ type: 'warning', title: 'Low completion', text: `${overallRate}% average. Consider simplifying your daily targets to build momentum.` });
   }
 
-  // Weekly trend (last 7 vs prior 7)
-  if (activeDailyRates.length >= 14) {
-    const last7 = activeDailyRates.slice(-7).reduce((s, d) => s + d.rate, 0) / 7;
-    const prev7 = activeDailyRates.slice(-14, -7).reduce((s, d) => s + d.rate, 0) / 7;
-    const delta = last7 - prev7;
+  // Weekly trend using actual calendar-week windows (last 7 calendar days vs prior 7)
+  if (weekTrend.last7.length > 0 && weekTrend.prev7.length > 0) {
+    const last7Avg = weekTrend.last7.reduce((s, d) => s + d.rate, 0) / weekTrend.last7.length;
+    const prev7Avg = weekTrend.prev7.reduce((s, d) => s + d.rate, 0) / weekTrend.prev7.length;
+    const delta = last7Avg - prev7Avg;
     if (delta > 0.1) {
       insights.push({ type: 'success', title: 'Upward trend', text: 'Last 7 days outperform the previous week. Momentum is building.' });
     } else if (delta < -0.1) {
@@ -85,10 +88,11 @@ function generateInsights(overallRate, activeDailyRates, questStats) {
     }
   }
 
-  // Weakest and strongest quest
-  if (questStats.length > 1) {
-    const weakest = questStats.reduce((m, q) => q.completionRate < m.completionRate ? q : m, questStats[0]);
-    const strongest = questStats.reduce((m, q) => q.completionRate > m.completionRate ? q : m, questStats[0]);
+  // Weakest and strongest quest — only consider quests with enough data to be meaningful
+  const eligible = questStats.filter((q) => q.total >= MIN_QUEST_APPEARANCES);
+  if (eligible.length > 1) {
+    const weakest  = eligible.reduce((m, q) => q.completionRate < m.completionRate ? q : m, eligible[0]);
+    const strongest = eligible.reduce((m, q) => q.completionRate > m.completionRate ? q : m, eligible[0]);
 
     if (weakest.completionRate < 50) {
       insights.push({ type: 'warning', title: 'Weak link', text: `"${weakest.title}" is your hardest quest at ${weakest.completionRate}% completion.` });
@@ -152,10 +156,19 @@ async function getOverview(userId) {
         questId: s.id,
         title: s.data().title,
         completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+        total,
       };
     });
 
-  const insights = generateInsights(overallRate, activeDays, questStats);
+  // Calendar-week windows for accurate trend comparison
+  const cutoff7  = nDaysAgo(7);
+  const cutoff14 = nDaysAgo(14);
+  const weekTrend = {
+    last7: activeDays.filter((d) => d.date > cutoff7),
+    prev7: activeDays.filter((d) => d.date > cutoff14 && d.date <= cutoff7),
+  };
+
+  const insights = generateInsights(overallRate, activeDays, questStats, weekTrend);
 
   return {
     activeDays: activeDays.length,

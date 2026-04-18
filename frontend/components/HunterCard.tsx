@@ -3,17 +3,20 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from 'react-countup';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchStats,
   fetchTodayQuests,
   fetchTodayChallenges,
   fetchActivePenalty,
+  fetchRankProgress,
   setActiveTitle,
   HunterStats,
   DailyQuest,
   DailyChallengesDoc,
   PenaltyQuest,
+  RankProgress,
   Rank,
 } from '@/lib/api';
 import { xpRequiredForLevel } from '@/lib/xpUtils';
@@ -25,16 +28,28 @@ import StatsRadarChart from './StatsRadarChart';
 
 type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
 
-// ─── Rank progression (mirrors backend rankService.js) ────────────────────────
+// ─── Title name resolution (IDs → display names) ─────────────────────────────
 
-const RANK_CHAIN: { rank: Rank; min: number; next: Rank | null; nextMin: number | null }[] = [
-  { rank: 'E', min: 0,  next: 'D', nextMin: 6  },
-  { rank: 'D', min: 6,  next: 'C', nextMin: 15 },
-  { rank: 'C', min: 15, next: 'B', nextMin: 30 },
-  { rank: 'B', min: 30, next: 'A', nextMin: 50 },
-  { rank: 'A', min: 50, next: 'S', nextMin: 80 },
-  { rank: 'S', min: 80, next: null, nextMin: null },
-];
+const TITLE_NAMES: Record<string, string> = {
+  consistent_i: 'Iron Starter', consistent_ii: 'Week Warrior',
+  consistent_iii: 'Fortnight Grinder', consistent_iv: 'Monthly Legend',
+  runner_i: 'First Strides', runner_ii: 'Road Warrior',
+  runner_iii: 'Distance Hunter', runner_iv: 'Iron Legs',
+  discipline_i: 'Daily Perfectionist', discipline_ii: 'Ironclad',
+  discipline_iii: 'Routine Master', discipline_iv: 'Shadow Disciple',
+  intellect_i: 'Scholar', intellect_ii: 'Avid Reader',
+  intellect_iii: 'Knowledge Hunter', intellect_iv: 'Mind of Shadow',
+  recovery_i: "Shadow's Return", recovery_ii: 'Unyielding',
+  recovery_iii: 'Resilient Hunter', recovery_iv: 'Phoenix',
+  boss_i: 'Challenger', boss_ii: 'Boss Slayer',
+  boss_iii: 'Raid Captain', boss_iv: 'Dungeon Breaker',
+  beast_mode: 'Beast Mode', perfect_week: 'Perfect Week',
+  early_riser: 'Early Riser', shadow_monarch: 'Shadow Monarch',
+};
+
+function resolveTitleName(titleStr: string): string {
+  return TITLE_NAMES[titleStr] ?? titleStr;
+}
 
 const RANK_STYLES: Record<Rank, string> = {
   E: 'text-gray-400',
@@ -96,14 +111,16 @@ export default function HunterCard() {
   const [quests,       setQuests]       = useState<DailyQuest[]>([]);
   const [challenges,   setChallenges]   = useState<DailyChallengesDoc | null>(null);
   const [penalty,      setPenalty]      = useState<PenaltyQuest | null>(null);
+  const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [questsReady,  setQuestsReady]  = useState(false);
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
-    fetchStats()           .then(setStats)      .catch(() => {});
-    fetchTodayChallenges() .then(setChallenges) .catch(() => {});
+    fetchStats()           .then(setStats)       .catch(() => {});
+    fetchTodayChallenges() .then(setChallenges)  .catch(() => {});
     fetchActivePenalty()   .then((r) => setPenalty(r.penalty)).catch(() => {});
+    fetchRankProgress()    .then(setRankProgress).catch(() => {});
     fetchTodayQuests()
       .then((data) => { setQuests(data); setQuestsReady(true); })
       .catch(() => { setQuestsReady(true); });
@@ -115,18 +132,16 @@ export default function HunterCard() {
   const { displayName, photoURL, email } = firebaseUser;
 
   const name         = displayName ?? email?.split('@')[0] ?? 'Hunter';
-  const displayTitle = pendingTitle ?? activeTitle;
+  const displayTitle     = pendingTitle ?? activeTitle;
+  const displayTitleName = displayTitle ? resolveTitleName(displayTitle) : null;
   const xpNeeded     = xpRequiredForLevel(level);
   const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
 
   // ── Rank progress ─────────────────────────────────────────────────────────
-  const rankScore = level * 2 + Math.min(streakCount, 60);
-  const rankInfo  = RANK_CHAIN.find((r) => r.rank === rank) ?? RANK_CHAIN[0];
-  const rankPct   =
-    rankInfo.nextMin == null
-      ? 100
-      : Math.min(100, ((rankScore - rankInfo.min) / (rankInfo.nextMin - rankInfo.min)) * 100);
-  const ptsToNext = rankInfo.nextMin != null ? Math.max(0, rankInfo.nextMin - rankScore) : 0;
+  const rankMetCount   = rankProgress?.metCount   ?? 0;
+  const rankTotalCount = rankProgress?.totalCount ?? 0;
+  const rankNextRank   = rankProgress?.nextRank   ?? null;
+  const rankPct        = rankTotalCount > 0 ? (rankMetCount / rankTotalCount) * 100 : 100;
 
   // ── Daily snapshot ────────────────────────────────────────────────────────
   const questsDone      = quests.filter((q) => q.completed).length;
@@ -205,8 +220,8 @@ export default function HunterCard() {
 
         <div className="flex items-center gap-2 mt-2">
           <RankBadge rank={rank ?? 'E'} size="md" />
-          {displayTitle && (
-            <span className="text-xs text-muted italic">"{displayTitle}"</span>
+          {displayTitleName && (
+            <span className="text-xs text-muted italic">"{displayTitleName}"</span>
           )}
         </div>
       </motion.div>
@@ -244,7 +259,7 @@ export default function HunterCard() {
           </p>
         </div>
 
-        {/* Rank progress bar */}
+        {/* Rank progress — criteria-based */}
         <div>
           <div className="flex items-center gap-2">
             <span className={`text-[11px] font-bold ${RANK_STYLES[rank ?? 'E']}`}>{rank}</span>
@@ -256,23 +271,40 @@ export default function HunterCard() {
                 transition={{ duration: 0.9, ease: 'easeOut', delay: 0.15 }}
                 style={{
                   background:
-                    rankInfo.nextMin == null
+                    rankNextRank == null
                       ? 'linear-gradient(90deg, #ef4444, #f97316)'
                       : 'linear-gradient(90deg, #7c3aed, #a78bfa)',
                 }}
               />
             </div>
-            {rankInfo.next && (
-              <span className={`text-[11px] font-bold ${RANK_STYLES[rankInfo.next]}`}>
-                {rankInfo.next}
+            {rankNextRank && (
+              <span className={`text-[11px] font-bold ${RANK_STYLES[rankNextRank]}`}>
+                {rankNextRank}
               </span>
             )}
           </div>
           <p className="text-[10px] text-muted mt-1 text-right">
-            {rankInfo.nextMin == null
+            {rankNextRank == null
               ? 'Max rank achieved'
-              : `${ptsToNext} pts to ${rankInfo.next}-Rank · Score ${rankScore}`}
+              : rankProgress
+              ? `${rankMetCount}/${rankTotalCount} conditions met for ${rankNextRank}-Rank`
+              : `Working towards ${rankNextRank}-Rank`}
           </p>
+          {/* Criteria breakdown */}
+          {rankProgress && rankNextRank && rankProgress.criteria.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {rankProgress.criteria.map((c) => (
+                <div key={c.label} className="flex items-center justify-between text-[10px]">
+                  <span className={c.met ? 'text-green-400' : 'text-muted'}>
+                    {c.met ? '✓' : '·'} {c.label}
+                  </span>
+                  <span className={`tabular-nums ${c.met ? 'text-green-400' : 'text-muted'}`}>
+                    {c.current}/{c.target}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -464,10 +496,16 @@ export default function HunterCard() {
             transition={{ duration: 0.35, delay: 0.35 }}
             className="px-4 sm:px-6 py-4 border-t border-border"
           >
-            <p className="text-[10px] text-muted uppercase tracking-widest mb-3">Titles</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] text-muted uppercase tracking-widest">Titles</p>
+              <Link href="/titles" className="text-[10px] text-accent-light/70 hover:text-accent-light transition-colors">
+                View all →
+              </Link>
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {(titles ?? []).map((title) => {
-                const isActive = title === displayTitle;
+                const isActive    = title === displayTitle;
+                const displayName = resolveTitleName(title);
                 return (
                   <motion.button
                     key={title}
@@ -480,7 +518,7 @@ export default function HunterCard() {
                         : 'bg-transparent border-border text-muted hover:border-subtle hover:text-white'
                     }`}
                   >
-                    {title}
+                    {displayName}
                     {isActive && <span className="ml-1 opacity-60">·</span>}
                   </motion.button>
                 );

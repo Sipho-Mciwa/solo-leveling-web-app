@@ -299,6 +299,7 @@ export interface BossQuest {
   title: string;
   description: string;
   questType: string;
+  mixedTypes: string[] | null;
   unit: string;
   targetValue: number;
   currentValue: number;

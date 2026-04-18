@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const { getUserRank, getRankProgress, setActiveTitle } = require('../services/rankService');
-const { getTitleProgress } = require('../services/titleService');
+const { getTitleProgress, evaluateTitles } = require('../services/titleService');
 const { auth } = require('../config/firebase');
 
 async function authenticate(req, res, next) {
@@ -16,9 +16,10 @@ async function authenticate(req, res, next) {
   }
 }
 
-// GET /api/rank  — recalculate and return rank + titles
+// GET /api/rank  — recalculate rank + fire-and-forget title evaluation
 router.get('/', authenticate, async (req, res) => {
   try {
+    evaluateTitles(req.userId).catch(() => {});
     res.json(await getUserRank(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -34,9 +35,11 @@ router.get('/progress', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/rank/titles/progress  — all titles with unlock state and progress bars
+// GET /api/rank/titles/progress  — evaluate earned titles then return full progress
 router.get('/titles/progress', authenticate, async (req, res) => {
   try {
+    // Always evaluate first so newly-met conditions are awarded before the page renders
+    await evaluateTitles(req.userId);
     res.json(await getTitleProgress(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });

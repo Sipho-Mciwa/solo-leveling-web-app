@@ -1,90 +1,165 @@
 const { db } = require('../config/firebase');
+const { getUserStats } = require('./statsService');
 
-// ─── Rank configuration ───────────────────────────────────────────────────────
+// ─── Rank chain & requirements ─────────────────────────────────────────────────
 
-const RANK_THRESHOLDS = [
-  { rank: 'S', minScore: 80 },
-  { rank: 'A', minScore: 50 },
-  { rank: 'B', minScore: 30 },
-  { rank: 'C', minScore: 15 },
-  { rank: 'D', minScore: 6  },
-  { rank: 'E', minScore: 0  },
-];
+const RANK_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 
-// Titles are awarded in order — once earned they're permanent
-const TITLE_MILESTONES = [
-  { title: 'E Rank Hunter',    condition: ()       => true                          },
-  { title: 'Iron Will',        condition: (u)      => (u.streakCount || 0) >= 7    },
-  { title: 'Shadow Walker',    condition: (u)      => (u.level || 1) >= 10         },
-  { title: "Death's Apostle",  condition: (u, r)   => ['B','A','S'].includes(r)    },
-  { title: 'Shadow Monarch',   condition: (u, r)   => r === 'S'                    },
-];
+// Each rank's promotion criteria — all must be met simultaneously.
+const RANK_REQUIREMENTS = {
+  D: [
+    { id: 'level',  label: 'Level',     target: 5,  type: 'level'  },
+    { id: 'streak', label: 'Streak',    target: 3,  type: 'streak' },
+  ],
+  C: [
+    { id: 'level',      label: 'Level',      target: 10, type: 'level'  },
+    { id: 'streak',     label: 'Streak',     target: 7,  type: 'streak' },
+    { id: 'DISCIPLINE', label: 'Discipline', target: 40, type: 'stat'   },
+  ],
+  B: [
+    { id: 'level',      label: 'Level',      target: 20, type: 'level'  },
+    { id: 'streak',     label: 'Streak',     target: 14, type: 'streak' },
+    { id: 'PHY',        label: 'PHY',        target: 40, type: 'stat'   },
+    { id: 'DISCIPLINE', label: 'Discipline', target: 60, type: 'stat'   },
+  ],
+  A: [
+    { id: 'level',      label: 'Level',      target: 35, type: 'level'  },
+    { id: 'streak',     label: 'Streak',     target: 21, type: 'streak' },
+    { id: 'PHY',        label: 'PHY',        target: 60, type: 'stat'   },
+    { id: 'DISCIPLINE', label: 'Discipline', target: 70, type: 'stat'   },
+    { id: 'STAMINA',    label: 'Stamina',    target: 40, type: 'stat'   },
+  ],
+  S: [
+    { id: 'level',      label: 'Level',      target: 50, type: 'level'  },
+    { id: 'streak',     label: 'Streak',     target: 30, type: 'streak' },
+    { id: 'PHY',        label: 'PHY',        target: 75, type: 'stat'   },
+    { id: 'DISCIPLINE', label: 'Discipline', target: 80, type: 'stat'   },
+    { id: 'STAMINA',    label: 'Stamina',    target: 60, type: 'stat'   },
+    { id: 'INTELLECT',  label: 'Intellect',  target: 50, type: 'stat'   },
+  ],
+};
 
-// ─── Pure functions ───────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function calculateRankScore(level, streak) {
-  return (level || 1) * 2 + Math.min(streak || 0, 60);
+function getCriterionValue(req, user, stats) {
+  if (req.type === 'level')  return user.level  || 1;
+  if (req.type === 'streak') return user.streakCount || 0;
+  if (req.type === 'stat')   return stats[req.id]  || 0;
+  return 0;
 }
 
-function getRankFromScore(score) {
-  for (const { rank, minScore } of RANK_THRESHOLDS) {
-    if (score >= minScore) return rank;
-  }
-  return 'E';
+function checkAllMet(reqs, user, stats) {
+  return reqs.every((req) => getCriterionValue(req, user, stats) >= req.target);
 }
 
-function computeNewTitles(user, newRank, existingTitles) {
-  const titles = [...existingTitles];
-  for (const { title, condition } of TITLE_MILESTONES) {
-    if (!titles.includes(title) && condition(user, newRank)) {
-      titles.push(title);
-    }
-  }
-  return titles;
-}
-
-// ─── Firestore operations ─────────────────────────────────────────────────────
+// ─── Core rank evaluation ──────────────────────────────────────────────────────
 
 /**
- * Recalculate and persist rank + titles for a user.
- * Called after quest completion and on login.
+ * Idempotent, upgrade-only rank update.
+ * Reads current rank, tries to promote one rank at a time.
+ * Also awards the shadow_monarch title on S-Rank.
  */
 async function updateUserRank(userId) {
-  const userRef = db.collection('users').doc(userId);
-  const userSnap = await userRef.get();
+  const [userSnap, stats] = await Promise.all([
+    db.collection('users').doc(userId).get(),
+    getUserStats(userId),
+  ]);
   if (!userSnap.exists) throw new Error('User not found');
-  const user = userSnap.data();
 
-  const score   = calculateRankScore(user.level, user.streakCount);
-  const newRank = getRankFromScore(score);
+  const user         = userSnap.data();
+  const currentRank  = user.rank || 'E';
+  const currentIdx   = RANK_ORDER.indexOf(currentRank);
 
-  const existingTitles = user.titles?.length ? user.titles : ['E Rank Hunter'];
-  const newTitles      = computeNewTitles(user, newRank, existingTitles);
+  let promotedRank = currentRank;
 
-  const updates = { rank: newRank, titles: newTitles };
-  // Set a default activeTitle on first calculation
-  if (!user.activeTitle) updates.activeTitle = newTitles[0];
+  for (let i = currentIdx + 1; i < RANK_ORDER.length; i++) {
+    const target = RANK_ORDER[i];
+    if (checkAllMet(RANK_REQUIREMENTS[target], user, stats)) {
+      promotedRank = target;
+    } else {
+      break;
+    }
+  }
 
-  await userRef.update(updates);
+  const updates = { rank: promotedRank };
+
+  // Award shadow_monarch title on S-Rank (fire-and-forget handled by caller)
+  if (promotedRank === 'S') {
+    const existingTitles = user.titles || [];
+    if (!existingTitles.includes('shadow_monarch')) {
+      updates.titles = [...existingTitles, 'shadow_monarch'];
+      if (!user.activeTitle) updates.activeTitle = 'shadow_monarch';
+    }
+  }
+
+  if (!user.activeTitle && (user.titles?.length ?? 0) > 0) {
+    updates.activeTitle = user.titles[0];
+  }
+
+  await db.collection('users').doc(userId).update(updates);
 
   return {
-    rank:        newRank,
-    titles:      newTitles,
-    activeTitle: user.activeTitle || newTitles[0] || null,
+    rank:        promotedRank,
+    titles:      updates.titles ?? user.titles ?? [],
+    activeTitle: updates.activeTitle ?? user.activeTitle ?? null,
+    promoted:    promotedRank !== currentRank,
   };
 }
 
-/** Read current rank data without recalculating. */
+/**
+ * Returns current rank data and triggers re-evaluation.
+ */
 async function getUserRank(userId) {
-  const userSnap = await db.collection('users').doc(userId).get();
-  if (!userSnap.exists) throw new Error('User not found');
-  const user = userSnap.data();
-
-  // Recalculate on read so it's always fresh
   return updateUserRank(userId);
 }
 
-/** Switch which title is displayed. */
+/**
+ * Returns current value vs target for each criterion of the NEXT rank.
+ */
+async function getRankProgress(userId) {
+  const [userSnap, stats] = await Promise.all([
+    db.collection('users').doc(userId).get(),
+    getUserStats(userId),
+  ]);
+  if (!userSnap.exists) throw new Error('User not found');
+
+  const user        = userSnap.data();
+  const currentRank = user.rank || 'E';
+
+  if (currentRank === 'S') {
+    return { currentRank: 'S', nextRank: null, criteria: [], metCount: 0, totalCount: 0, canPromote: false };
+  }
+
+  const currentIdx = RANK_ORDER.indexOf(currentRank);
+  const nextRank   = RANK_ORDER[currentIdx + 1];
+  const reqs       = RANK_REQUIREMENTS[nextRank];
+
+  const criteria = reqs.map((req) => {
+    const current = getCriterionValue(req, user, stats);
+    return {
+      label:   req.label,
+      current: Math.min(current, req.target),
+      target:  req.target,
+      met:     current >= req.target,
+      type:    req.type,
+    };
+  });
+
+  const metCount = criteria.filter((c) => c.met).length;
+
+  return {
+    currentRank,
+    nextRank,
+    criteria,
+    metCount,
+    totalCount:  criteria.length,
+    canPromote:  metCount === criteria.length,
+  };
+}
+
+/**
+ * Switch which title is active. Accepts both new IDs and legacy name strings.
+ */
 async function setActiveTitle(userId, title) {
   const userRef  = db.collection('users').doc(userId);
   const userSnap = await userRef.get();
@@ -96,4 +171,4 @@ async function setActiveTitle(userId, title) {
   return { activeTitle: title };
 }
 
-module.exports = { updateUserRank, getUserRank, setActiveTitle, getRankFromScore, calculateRankScore };
+module.exports = { updateUserRank, getUserRank, getRankProgress, setActiveTitle, RANK_REQUIREMENTS, RANK_ORDER };

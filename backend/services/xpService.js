@@ -36,4 +36,13 @@ async function addXp(userId, amount) {
   };
 }
 
-module.exports = { addXp, xpRequiredForLevel };
+/** Compute the total lifetime XP earned from level + remainder. */
+function getTotalXp(level, xpRemainder) {
+  let total = xpRemainder || 0;
+  for (let l = 1; l < (level || 1); l++) {
+    total += xpRequiredForLevel(l);
+  }
+  return total;
+}
+
+module.exports = { addXp, xpRequiredForLevel, getTotalXp };

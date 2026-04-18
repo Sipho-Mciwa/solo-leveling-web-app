@@ -1,5 +1,7 @@
 const { db } = require('../config/firebase');
 const { addXp } = require('./xpService');
+const { evaluateTitles } = require('./titleService');
+const { updateUserRank } = require('./rankService');
 
 const CHALLENGES = [
   { key: 'wake_up_5am',    title: 'Wake up 5:00 AM',  xpReward: 20 },
@@ -97,6 +99,11 @@ async function completeChallenge(docId, userId, challengeKey) {
   let bonusXpResult = null;
   if (shouldAwardBonus) {
     bonusXpResult = await addXp(userId, ALL_COMPLETE_BONUS);
+  }
+
+  if (allComplete) {
+    evaluateTitles(userId).catch((e) => console.error('[TitleService] eval error:', e));
+    updateUserRank(userId).catch((e) => console.error('[RankService] update error:', e));
   }
 
   return {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
-const { getUserRank, setActiveTitle } = require('../services/rankService');
+const { getUserRank, getRankProgress, setActiveTitle } = require('../services/rankService');
+const { getTitleProgress } = require('../services/titleService');
 const { auth } = require('../config/firebase');
 
 async function authenticate(req, res, next) {
@@ -15,10 +16,28 @@ async function authenticate(req, res, next) {
   }
 }
 
-// GET /api/rank  — recalculates and returns rank + titles
+// GET /api/rank  — recalculate and return rank + titles
 router.get('/', authenticate, async (req, res) => {
   try {
     res.json(await getUserRank(req.userId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/rank/progress  — next-rank criteria with current values
+router.get('/progress', authenticate, async (req, res) => {
+  try {
+    res.json(await getRankProgress(req.userId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/rank/titles/progress  — all titles with unlock state and progress bars
+router.get('/titles/progress', authenticate, async (req, res) => {
+  try {
+    res.json(await getTitleProgress(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

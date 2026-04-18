@@ -1,6 +1,8 @@
 const { db } = require('../config/firebase');
 const { updateQuestProgress } = require('./questService');
 const { invalidateCache } = require('./runningAnalyticsService');
+const { evaluateTitles } = require('./titleService');
+const { updateUserRank } = require('./rankService');
 
 const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
 const STRAVA_API_URL    = 'https://www.strava.com/api/v3';
@@ -18,9 +20,7 @@ async function getStravaTokens(userId) {
   return tokens;
 }
 
-async function refreshTokenIfNeeded(userId, tokens) {
-  if (Date.now() / 1000 < tokens.expiresAt - 300) return tokens;
-
+async function doTokenRefresh(userId, tokens) {
   const res = await fetch(STRAVA_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -41,6 +41,11 @@ async function refreshTokenIfNeeded(userId, tokens) {
   };
   await db.collection('users').doc(userId).update({ stravaTokens: fresh });
   return fresh;
+}
+
+async function refreshTokenIfNeeded(userId, tokens) {
+  if (Date.now() / 1000 < tokens.expiresAt - 300) return tokens;
+  return doTokenRefresh(userId, tokens);
 }
 
 // ─── Rate limiting ─────────────────────────────────────────────────────────────
@@ -66,12 +71,18 @@ async function fetchActivities(userId) {
 
   // Only request activities from the last FETCH_WINDOW_DAYS to keep calls lean
   const after = Math.floor((Date.now() - FETCH_WINDOW_DAYS * 24 * 60 * 60 * 1000) / 1000);
+  const url   = `${STRAVA_API_URL}/athlete/activities?per_page=30&after=${after}`;
 
-  const res = await fetch(
-    `${STRAVA_API_URL}/athlete/activities?per_page=30&after=${after}`,
-    { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
-  );
-  if (!res.ok) throw new Error('Failed to fetch Strava activities');
+  let res = await fetch(url, { headers: { Authorization: `Bearer ${tokens.accessToken}` } });
+
+  // 401 can happen if Strava invalidated the token outside the normal expiry window
+  if (res.status === 401) {
+    console.warn(`[StravaSync] 401 for ${userId} — forcing token refresh`);
+    tokens = await doTokenRefresh(userId, tokens);
+    res = await fetch(url, { headers: { Authorization: `Bearer ${tokens.accessToken}` } });
+  }
+
+  if (!res.ok) throw new Error(`Failed to fetch Strava activities (${res.status})`);
   return res.json();
 }
 
@@ -156,7 +167,11 @@ async function syncStravaActivities(userId) {
   const result     = await processNewActivities(userId, runs);
 
   await updateLastSync(userId);
-  if (result.processed > 0) invalidateCache(userId);
+  if (result.processed > 0) {
+    invalidateCache(userId);
+    evaluateTitles(userId).catch((e) => console.error('[TitleService] eval error:', e));
+    updateUserRank(userId).catch((e) => console.error('[RankService] update error:', e));
+  }
   return result;
 }
 

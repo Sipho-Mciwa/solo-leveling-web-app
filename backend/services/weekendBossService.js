@@ -172,7 +172,10 @@ async function generateWeekendBoss(userId) {
 
   if (!existing.empty) {
     const doc = existing.docs[0];
-    return { generated: false, boss: { id: doc.id, ...doc.data() } };
+    const data = doc.data();
+    // Once claimed, hide the boss card from the dashboard
+    if (data.status === 'claimed') return { generated: false, boss: null };
+    return { generated: false, boss: { id: doc.id, ...data } };
   }
 
   const [userSnap, memory] = await Promise.all([
@@ -232,6 +235,9 @@ async function getWeekendBoss(userId) {
 
   const doc = snap.docs[0];
   const boss = { id: doc.id, ...doc.data() };
+
+  // Once claimed, hide the boss card from the dashboard
+  if (boss.status === 'claimed') return { boss: null };
 
   // Lazy expiry: active boss past its end time → mark expired
   if (boss.status === 'active' && new Date(boss.endTime) < new Date()) {

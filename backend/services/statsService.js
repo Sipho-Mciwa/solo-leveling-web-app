@@ -95,7 +95,9 @@ function calculateINTELLECT(challengeDocs) {
   let days = 0;
   let completed = 0;
   for (const doc of challengeDocs) {
-    const reading = (doc.challenges || []).find((c) => c.key === 'read_10_pages');
+    const reading = (doc.challenges || []).find(
+      (c) => c.key === 'read_10_pages' || c.key === 'read_book'
+    );
     if (reading) {
       days++;
       if (reading.completed) completed++;

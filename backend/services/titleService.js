@@ -15,12 +15,13 @@ function nDaysAgo(n) {
 async function gatherData(userId) {
   const windowStart = nDaysAgo(179); // 180-day window for history checks
 
-  const [userSnap, activitiesSnap, challengesSnap, questsSnap, bossSnap] = await Promise.all([
+  const [userSnap, activitiesSnap, challengesSnap, questsSnap, bossSnap, weekendBossSnap] = await Promise.all([
     db.collection('users').doc(userId).get(),
     db.collection('processedActivities').where('userId', '==', userId).get(),
     db.collection('dailyChallenges').where('userId', '==', userId).where('date', '>=', windowStart).get(),
     db.collection('dailyQuests').where('userId', '==', userId).where('date', '>=', windowStart).get(),
     db.collection('bossQuests').where('userId', '==', userId).where('completed', '==', true).get(),
+    db.collection('weekendBossChallenges').where('userId', '==', userId).where('status', '==', 'claimed').get(),
   ]);
 
   if (!userSnap.exists) throw new Error('User not found');
@@ -29,7 +30,10 @@ async function gatherData(userId) {
   const activities      = activitiesSnap.docs.map((d) => d.data());
   const challengeDocs   = challengesSnap.docs.map((d) => d.data()).sort((a, b) => a.date.localeCompare(b.date));
   const questDocs       = questsSnap.docs.map((d) => d.data());
-  const completedBosses = bossSnap.docs.length;
+
+  const legacyBosses    = bossSnap.docs.length;
+  const weekendBosses   = weekendBossSnap.docs.length;
+  const completedBosses = legacyBosses + weekendBosses;
 
   // ── Derived: running totals ────────────────────────────────────────────────
   const totalRunCount   = activities.length;
@@ -48,17 +52,17 @@ async function gatherData(userId) {
   // longestPerfectStreak: longest consecutive run of perfect-challenge days
   const longestPerfectStreak = longestConsecutiveRun(perfectDates);
 
-  // readingDates: sorted array of dates where read_10_pages was completed
+  // readingDates: sorted array of dates where read_10_pages or read_book was completed
   const readingDates = challengeDocs
-    .filter((d) => (d.challenges || []).some((c) => c.key === 'read_10_pages' && c.completed))
+    .filter((d) => (d.challenges || []).some((c) => (c.key === 'read_10_pages' || c.key === 'read_book') && c.completed))
     .map((d) => d.date)
     .sort();
   const readingDaysCount    = readingDates.length;
   const longestReadingStreak = longestConsecutiveRun(readingDates);
 
-  // wakeUpDaysCount: total days with wake_up_5am completed
+  // wakeUpDaysCount: total days with wake_up_5am or wake_up_6am completed
   const wakeUpDaysCount = challengeDocs.filter(
-    (d) => (d.challenges || []).some((c) => c.key === 'wake_up_5am' && c.completed)
+    (d) => (d.challenges || []).some((c) => (c.key === 'wake_up_5am' || c.key === 'wake_up_6am') && c.completed)
   ).length;
 
   // ── Derived: quest maps ────────────────────────────────────────────────────

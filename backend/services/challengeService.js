@@ -4,12 +4,12 @@ const { evaluateTitles } = require('./titleService');
 const { updateUserRank } = require('./rankService');
 
 const CHALLENGES = [
-  { key: 'wake_up_5am',    title: 'Wake up 5:00 AM',  xpReward: 20 },
+  { key: 'wake_up_6am',    title: 'Wake up at 6:00 AM', xpReward: 20 },
   { key: 'drink_2l_water', title: 'Drink 2L water',   xpReward: 15 },
   { key: 'make_bed',       title: 'Make bed',         xpReward: 10 },
   { key: 'bath',           title: 'Bath',             xpReward: 10 },
-  { key: 'read_10_pages',  title: 'Read 10 pages',    xpReward: 20 },
-  { key: 'sleep_2130',     title: 'Sleep 21:30',      xpReward: 25 },
+  { key: 'read_book',      title: 'Read a Book',      xpReward: 20 },
+  { key: 'sleep_2200',     title: 'Sleep at 22:00',   xpReward: 25 },
 ];
 
 const ALL_COMPLETE_BONUS = 100;

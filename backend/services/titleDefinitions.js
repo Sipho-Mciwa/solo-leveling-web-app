@@ -35,10 +35,10 @@ const TITLE_DEFS = {
   recovery_iv:  { id: 'recovery_iv',  name: 'Phoenix',          category: 'recovery', tier: 4, description: 'Recover from a broken streak 10 times' },
 
   // ── Boss ──────────────────────────────────────────────────────────────────
-  boss_i:   { id: 'boss_i',   name: 'Challenger',      category: 'boss', tier: 1, description: 'Complete your first boss quest' },
-  boss_ii:  { id: 'boss_ii',  name: 'Boss Slayer',     category: 'boss', tier: 2, description: 'Complete 3 boss quests' },
-  boss_iii: { id: 'boss_iii', name: 'Raid Captain',    category: 'boss', tier: 3, description: 'Complete 7 boss quests' },
-  boss_iv:  { id: 'boss_iv',  name: 'Dungeon Breaker', category: 'boss', tier: 4, description: 'Complete 15 boss quests' },
+  boss_i:   { id: 'boss_i',   name: 'Challenger',      category: 'boss', tier: 1, description: 'Complete your first weekend boss' },
+  boss_ii:  { id: 'boss_ii',  name: 'Boss Slayer',     category: 'boss', tier: 2, description: 'Complete 3 weekend bosses' },
+  boss_iii: { id: 'boss_iii', name: 'Raid Captain',    category: 'boss', tier: 3, description: 'Complete 7 weekend bosses' },
+  boss_iv:  { id: 'boss_iv',  name: 'Dungeon Breaker', category: 'boss', tier: 4, description: 'Complete 15 weekend bosses' },
 
   // ── Rare ──────────────────────────────────────────────────────────────────
   beast_mode:     { id: 'beast_mode',     name: 'Beast Mode',     category: 'rare', tier: 'rare', description: 'Complete all quests and all 6 challenges on the same day' },

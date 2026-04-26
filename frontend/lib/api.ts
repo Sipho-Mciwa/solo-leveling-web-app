@@ -143,6 +143,15 @@ export function fetchRunningAnalytics() {
   return apiFetch<RunningAnalytics>('/api/analytics/running');
 }
 
+// AI Coach
+export function fetchAIInsight() {
+  return apiFetch<{ insight: string }>('/api/ai/insight', { method: 'POST' });
+}
+
+export function fetchAIChallenges() {
+  return apiFetch<{ challenges: AISuggestion[] }>('/api/ai/challenges', { method: 'POST' });
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -414,6 +423,12 @@ export interface RunningAnalytics {
   avgPaceLabel: string | null;
   consistencyScore: number;
   insights: string[];
+}
+
+export interface AISuggestion {
+  title: string;
+  description: string;
+  xpReward: number;
 }
 
 export interface PenaltyQuest {

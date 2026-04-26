@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
-import { DailyChallenge } from '@/lib/api';
+import { DailyChallenge, AISuggestion, fetchAIChallenges } from '@/lib/api';
 
 // ─── Stagger variants ─────────────────────────────────────────────────────────
 
@@ -20,6 +21,15 @@ const itemVariants = {
 
 export default function ChallengeSection() {
   const { challengeDoc, loading } = useChallenges();
+  const { firebaseUser } = useAuth();
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+    fetchAIChallenges()
+      .then((r) => setAiSuggestions(r.challenges))
+      .catch(() => {});
+  }, [firebaseUser]);
 
   if (loading) {
     return (
@@ -93,6 +103,45 @@ export default function ChallengeSection() {
           >
             All challenges complete — discipline maintained.
           </motion.p>
+        )}
+      </AnimatePresence>
+
+      {/* AI Suggestions */}
+      <AnimatePresence>
+        {aiSuggestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="mt-5"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] text-muted uppercase tracking-widest">Coach Suggests</p>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+                AI
+              </span>
+            </div>
+            <div className="space-y-2">
+              {aiSuggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 px-4 py-3 rounded-xl border border-accent/20 bg-accent/5"
+                >
+                  <div className="w-5 h-5 rounded-full border-2 border-accent/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[9px] text-accent-light/60">✦</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white">{s.title}</p>
+                    <p className="text-[11px] text-muted mt-0.5 leading-snug">{s.description}</p>
+                  </div>
+                  <span className="text-xs font-medium text-accent-light/70 shrink-0">
+                    +{s.xpReward} XP
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </section>

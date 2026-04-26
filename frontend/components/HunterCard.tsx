@@ -11,6 +11,7 @@ import {
   fetchTodayChallenges,
   fetchActivePenalty,
   fetchRankProgress,
+  fetchAIInsight,
   setActiveTitle,
   HunterStats,
   DailyQuest,
@@ -114,6 +115,7 @@ export default function HunterCard() {
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [questsReady,  setQuestsReady]  = useState(false);
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
+  const [aiInsight,    setAiInsight]    = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -124,6 +126,7 @@ export default function HunterCard() {
     fetchTodayQuests()
       .then((data) => { setQuests(data); setQuestsReady(true); })
       .catch(() => { setQuestsReady(true); });
+    fetchAIInsight()       .then((r) => setAiInsight(r.insight)).catch(() => {});
   }, [firebaseUser]);
 
   if (!userProfile || !firebaseUser) return null;
@@ -479,9 +482,18 @@ export default function HunterCard() {
         {...sectionVariant(0.28)}
         className="px-4 sm:px-6 py-4 border-t border-border"
       >
-        <p className="text-[10px] text-muted uppercase tracking-widest mb-2">Insight</p>
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-[10px] text-muted uppercase tracking-widest">
+            {aiInsight ? 'AI Coach' : 'Insight'}
+          </p>
+          {aiInsight && (
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+              AI
+            </span>
+          )}
+        </div>
         <p className="text-xs text-accent-light/90 leading-relaxed italic">
-          "{insight}"
+          "{aiInsight ?? insight}"
         </p>
       </motion.div>
 

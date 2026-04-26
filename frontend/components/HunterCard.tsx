@@ -69,7 +69,6 @@ export default function HunterCard() {
   const [penalty,      setPenalty]      = useState<PenaltyQuest | null>(null);
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [questsReady,  setQuestsReady]  = useState(false);
-  const [pendingTitle, setPendingTitle] = useState<string | null>(null);
   const [aiInsight,    setAiInsight]    = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,9 +88,8 @@ export default function HunterCard() {
   const { xp, level, streakCount, rank, activeTitle, titles } = userProfile;
   const { displayName, photoURL, email } = firebaseUser;
 
-  const name         = displayName ?? email?.split('@')[0] ?? 'Hunter';
-  const displayTitle     = pendingTitle ?? activeTitle;
-  const displayTitleName = displayTitle ? resolveAchievementName(displayTitle) : null;
+  const name             = displayName ?? email?.split('@')[0] ?? 'Hunter';
+  const displayTitleName = activeTitle ? resolveAchievementName(activeTitle) : null;
   const xpNeeded     = xpRequiredForLevel(level);
   const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
 
@@ -131,22 +129,8 @@ export default function HunterCard() {
   const insight = generateLocalInsight(stats, streakCount, questsDone, questsTotal);
 
   // ── Titles ────────────────────────────────────────────────────────────────
-  const showTitles      = (titles?.length ?? 0) > 1;
   const recentTitle     = (titles?.length ?? 0) > 1 ? titles[titles.length - 1] : null;
   const showAchievement = recentTitle && recentTitle !== 'E Rank Hunter';
-
-  async function handleTitleSelect(title: string) {
-    if (title === displayTitle) return;
-    setPendingTitle(title);
-    try {
-      await setActiveTitle(title);
-      await refreshProfile();
-    } catch {
-      setPendingTitle(null);
-    } finally {
-      setPendingTitle(null);
-    }
-  }
 
   return (
     <div className="rounded-3xl border border-border bg-surface overflow-hidden">
@@ -461,50 +445,6 @@ export default function HunterCard() {
           );
         })()}
       </motion.div>
-
-      {/* ── 8. Title system ──────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showTitles && (
-          <motion.div
-            key="titles"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, delay: 0.35 }}
-            className="px-4 sm:px-6 py-4 border-t border-border"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] text-muted uppercase tracking-widest">Titles</p>
-              <Link href="/titles" className="text-[10px] text-accent-light/70 hover:text-accent-light transition-colors">
-                View all →
-              </Link>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(titles ?? []).map((title) => {
-                const isActive    = title === displayTitle;
-                const displayName = resolveAchievementName(title);
-                return (
-                  <motion.button
-                    key={title}
-                    onClick={() => handleTitleSelect(title)}
-                    whileTap={{ scale: 0.93 }}
-                    transition={{ duration: 0.1 }}
-                    className={`text-[11px] rounded-full px-3 py-1.5 border transition-colors duration-150 min-h-[34px] ${
-                      isActive
-                        ? 'bg-accent/20 border-accent/50 text-accent-light font-semibold'
-                        : 'bg-transparent border-border text-muted hover:border-subtle hover:text-white'
-                    }`}
-                  >
-                    {displayName}
-                    {isActive && <span className="ml-1 opacity-60">·</span>}
-                  </motion.button>
-                );
-              })}
-            </div>
-            <p className="text-[10px] text-muted/60 mt-2">Tap a title to equip it</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

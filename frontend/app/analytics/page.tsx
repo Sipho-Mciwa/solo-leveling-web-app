@@ -13,6 +13,7 @@ import {
   HeatmapEntry,
   RunningAnalytics,
 } from '@/lib/api';
+import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import LoadingScreen from '@/components/LoadingScreen';
 import StatCards from '@/components/analytics/StatCards';
@@ -116,7 +117,11 @@ export default function AnalyticsPage() {
 
         {/* ── Running performance ───────────────────────────────────────────── */}
         {!loading && !error && running && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             <div className="mt-12 mb-6">
               <div className="flex items-center gap-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#FC4C02" aria-hidden="true">
@@ -134,7 +139,7 @@ export default function AnalyticsPage() {
                 <DistanceChart data={running.weeklyData} />
               </div>
             </div>
-          </>
+          </motion.div>
         )}
 
       </main>

@@ -3,6 +3,7 @@ const { addXp } = require('./xpService');
 const { updateUserRank } = require('./rankService');
 const { evaluateTitles } = require('./titleService');
 const { getMemory } = require('./aiMemory.service');
+const { VOICE_INSTRUCTION, FALLBACKS } = require('./systemVoice');
 
 // ─── Weekend helpers ───────────────────────────────────────────────────────────
 
@@ -77,29 +78,31 @@ const RANK_REQUIREMENTS = {
 };
 
 function buildBossPrompt(user, memory) {
-  const rank = user.rank || 'E';
-  const req = RANK_REQUIREMENTS[rank] || RANK_REQUIREMENTS.E;
-  const missedHabit = memory?.patterns?.mostMissedHabitTitle || 'consistency';
-  const trend = memory?.patterns?.avgCompletionLast7 != null
-    ? `${memory.patterns.avgCompletionLast7}% completion last 7 days`
-    : 'unknown';
+  const rank        = user.rank || 'E';
+  const req         = RANK_REQUIREMENTS[rank] || RANK_REQUIREMENTS.E;
+  const missedHabit = memory?.patterns?.mostMissedHabitTitle || 'unrecorded';
+  const trend       = memory?.patterns?.avgCompletionLast7 != null
+    ? `${memory.patterns.avgCompletionLast7}% 7-day completion`
+    : 'unrecorded';
 
-  return `You are a game boss designer for a Solo Leveling fitness app.
+  return `${VOICE_INSTRUCTION}
 
-Create a weekend boss challenge (Saturday–Sunday only) for this hunter:
+You are generating a weekend boss entry for a Solo Leveling fitness application. The boss is an in-world entity — output a System threat assessment report.
+
+Hunter data:
 - Rank: ${rank}, Level: ${user.level || 1}, Streak: ${user.streakCount || 0} days
-- Recent performance: ${trend}
-- Most missed habit: ${missedHabit}
-- Performance trend: ${memory?.trends?.questCompletion || 'unknown'}
+- Recent output: ${trend}
+- Highest-miss protocol: ${missedHabit}
+- Performance trend: ${memory?.trends?.questCompletion || 'unrecorded'}
 
 Return ONLY valid JSON, no markdown, no explanation:
 {
-  "title": "Boss name (2-5 words, dramatic Solo Leveling style)",
-  "description": "2 sentences of lore/flavour. Make the hunter feel the stakes.",
-  "flavourText": "1 short warning sentence from the boss's perspective.",
+  "title": "Entity designation (2-5 words, dramatic Solo Leveling classification)",
+  "description": "2 sentences. System threat assessment of the entity. Clinical and precise — state classification, threat level, and engagement parameters.",
+  "flavourText": "1 sentence. System engagement directive. State what is required to neutralize the entity.",
   "requirements": {
     "type": "run",
-    "label": "Run 6km before the weekend ends",
+    "label": "Execute: Run 6km before the window closes",
     "minValue": 6,
     "unit": "km"
   },
@@ -111,8 +114,8 @@ Strict rules:
 - For "run": minValue between ${req.runMin} and ${req.runMax}, unit = "km"
 - For "reps": minValue between ${req.repsMin} and ${req.repsMax}, unit = "reps" (push-ups, squats, or sit-ups — specify in label)
 - xpReward between ${req.xpMin} and ${req.xpMax}
-- Choose "run" if the hunter has running quests; use missed habits to shape the challenge
-- label must be a clear imperative sentence with the exact number`;
+- label must begin with "Execute:" and include the exact number and unit
+- description and flavourText must follow system voice — no emotional language, no motivational phrases`;
 }
 
 function parseBossJSON(text) {
@@ -139,15 +142,14 @@ function parseBossJSON(text) {
 }
 
 const DEFAULT_BOSS = {
-  title: 'Iron Dungeon Warden',
-  description:
-    'The Warden has sealed the dungeon gates. No hunter passes without paying the price in sweat and willpower. Prove you belong here.',
-  flavourText: 'You will not leave this dungeon unchanged.',
+  title:       FALLBACKS.boss.title,
+  description: FALLBACKS.boss.description,
+  flavourText: FALLBACKS.boss.flavourText,
   requirements: {
-    type: 'reps',
-    label: 'Complete 100 push-ups before the weekend ends',
+    type:     'reps',
+    label:    'Execute: Complete 100 push-ups before the window closes',
     minValue: 100,
-    unit: 'reps',
+    unit:     'reps',
   },
   xpReward: 300,
 };
@@ -250,19 +252,19 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
   if (boss.userId !== userId) throw new Error('Unauthorized');
 
   if (boss.status === 'expired') {
-    return { success: false, message: 'The boss has escaped the dungeon. Challenge expired.' };
+    return { success: false, message: 'Engagement window expired. Entity no longer accessible. No reward available.' };
   }
   if (boss.status === 'claimed') {
-    return { success: false, message: 'Already claimed.' };
+    return { success: false, message: 'Reward already claimed. Status: complete.' };
   }
   if (boss.status === 'completed') {
-    return { success: false, message: 'Already submitted. Claim your XP.' };
+    return { success: false, message: 'Submission recorded. Proceed to claim reward.' };
   }
 
   // Check expiry
   if (new Date(boss.endTime) < new Date()) {
     await ref.update({ status: 'expired' });
-    return { success: false, message: 'The boss has escaped the dungeon. Challenge expired.' };
+    return { success: false, message: 'Engagement window expired. Entity no longer accessible. No reward available.' };
   }
 
   const numericValue = Number(value);
@@ -273,7 +275,7 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
   if (numericValue < boss.requirements.minValue) {
     return {
       success: false,
-      message: `Requirement not met. You need at least ${boss.requirements.minValue} ${boss.requirements.unit}.`,
+      message: `Output insufficient. Minimum threshold: ${boss.requirements.minValue} ${boss.requirements.unit}. Submission rejected.`,
     };
   }
 
@@ -287,7 +289,7 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
 
   return {
     success: true,
-    message: 'Boss challenge completed. Claim your XP reward.',
+    message: 'Entity neutralized. Output accepted. Proceed to claim reward.',
     xpReward: boss.xpReward,
   };
 }
@@ -303,11 +305,9 @@ async function claimWeekendReward(bossId, userId) {
 
   if (boss.status !== 'completed') {
     const msg =
-      boss.status === 'claimed'
-        ? 'Reward already claimed.'
-        : boss.status === 'expired'
-        ? 'Challenge expired — no reward available.'
-        : 'Complete the challenge before claiming.';
+      boss.status === 'claimed'  ? 'Reward already claimed. Status: complete.' :
+      boss.status === 'expired'  ? 'Engagement window expired. No reward available.' :
+                                   'Minimum output threshold not met. Complete the protocol before claiming.';
     return { claimed: false, message: msg };
   }
 

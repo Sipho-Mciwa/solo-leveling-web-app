@@ -7,6 +7,7 @@ import { QuestProvider } from '@/context/QuestContext';
 import { ChallengeProvider } from '@/context/ChallengeContext';
 import Header from '@/components/Header';
 import Dashboard from '@/components/Dashboard';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function DashboardPage() {
   const { firebaseUser, loading } = useAuth();
@@ -18,13 +19,7 @@ export default function DashboardPage() {
     }
   }, [loading, firebaseUser, router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted text-sm">Loading...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!firebaseUser) return null;
 

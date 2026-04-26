@@ -9,11 +9,30 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  type TooltipProps,
 } from 'recharts';
 import { RunningWeeklyData } from '@/lib/api';
 
 interface DistanceChartProps {
   data: RunningWeeklyData[];
+}
+
+function DistanceTooltip({ active, payload }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload as RunningWeeklyData | undefined;
+  if (!p) return null;
+  return (
+    <div style={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12, padding: '8px 12px' }}>
+      <p style={{ color: '#999', marginBottom: 4 }}>{p.week}</p>
+      <p style={{ color: '#FC4C02', fontWeight: 600 }}>
+        {p.totalDistance} km
+        <span style={{ color: '#888', fontWeight: 400 }}> · {p.runs} run{p.runs !== 1 ? 's' : ''}</span>
+      </p>
+      {p.avgPaceLabel && (
+        <p style={{ color: '#666', marginTop: 2 }}>avg {p.avgPaceLabel} /km</p>
+      )}
+    </div>
+  );
 }
 
 export default function DistanceChart({ data }: DistanceChartProps) {
@@ -56,17 +75,7 @@ export default function DistanceChart({ data }: DistanceChartProps) {
             axisLine={false}
             unit=" km"
           />
-          <Tooltip
-            contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
-            labelStyle={{ color: '#999' }}
-            formatter={(value: number, _: string, item: { payload?: RunningWeeklyData }) => {
-              const p = item.payload;
-              const detail = p
-                ? `  ·  ${p.runs} run${p.runs !== 1 ? 's' : ''}${p.avgPaceLabel ? `  ·  avg ${p.avgPaceLabel} /km` : ''}`
-                : '';
-              return [`${value} km${detail}`, 'Distance'] as [string, string];
-            }}
-          />
+          <Tooltip content={<DistanceTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
           <Bar dataKey="totalDistance" radius={[4, 4, 0, 0]}>
             {data.map((entry, i) => (
               <Cell

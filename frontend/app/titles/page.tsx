@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import LoadingScreen from '@/components/LoadingScreen';
 import {
   fetchTitleProgress,
   setActiveTitle,
@@ -158,7 +159,7 @@ export default function TitlesPage() {
     }
   }
 
-  if (loading || !firebaseUser) return null;
+  if (loading || !firebaseUser) return <LoadingScreen />;
 
   const tabTitles = titles.filter((t) => t.category === activeTab);
   const unlockedCount = titles.filter((t) => t.unlocked).length;

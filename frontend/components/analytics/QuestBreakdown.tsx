@@ -17,10 +17,14 @@ function QuestTooltip({ active, payload, label }: TooltipProps<number, string>) 
   if (!active || !payload?.length) return null;
   const q = payload[0]?.payload as QuestStat | undefined;
   if (!q) return null;
+  const color = barColor(q.completionRate);
   return (
     <div style={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12, padding: '8px 12px' }}>
       <p style={{ color: '#999', marginBottom: 4 }}>{label}</p>
-      <p style={{ color: '#fff' }}>{q.completionRate}% &nbsp;({q.completedDays}/{q.totalDays} days)</p>
+      <p style={{ color, fontWeight: 600 }}>
+        {q.completionRate}%
+        <span style={{ color: '#888', fontWeight: 400 }}> · {q.completedDays}/{q.totalDays} days</span>
+      </p>
     </div>
   );
 }
@@ -65,15 +69,7 @@ export default function QuestBreakdown({ quests }: QuestBreakdownProps) {
             axisLine={false}
             unit="%"
           />
-          <Tooltip
-            contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
-            labelStyle={{ color: '#999' }}
-            formatter={(value: number, _: string, item) => {
-              const q = item.payload as QuestStat | undefined;
-              const days = q ? ` (${q.completedDays}/${q.totalDays} days)` : '';
-              return [`${value}%${days}`, 'Completion'] as [string, string];
-            }}
-          />
+          <Tooltip content={<QuestTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
           <Bar dataKey="completionRate" radius={[4, 4, 0, 0]}>
             {quests.map((q) => (
               <Cell key={q.questId} fill={barColor(q.completionRate)} />

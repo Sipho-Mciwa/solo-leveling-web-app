@@ -10,6 +10,7 @@ import {
   XPResult,
 } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { TONE_STYLES } from '@/utils/systemStyles';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,18 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   const [claiming,  setClaiming]  = useState(false);
   const [claimXP,   setClaimXP]   = useState<XPResult | null>(null);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showFlash, setShowFlash] = useState(false);
+
+  // One-time screen flash when an urgent boss first renders
+  useEffect(() => {
+    if (boss.status === 'active' && computeTimeLeft(boss.endTime).total < 3_600_000) {
+      setShowFlash(true);
+      const t = setTimeout(() => setShowFlash(false), 700);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Live countdown
   useEffect(() => {
@@ -131,11 +143,47 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
     status === 'completed'? 'bg-green-900/10' :
                             'bg-red-950/20';
 
+  const criticalGlow = TONE_STYLES.critical;
+  const warningGlow  = TONE_STYLES.warning;
+
+  const bossGlow =
+    isUrgent          ? [criticalGlow.glowOff, criticalGlow.glowOn, criticalGlow.glowOff] :
+    status === 'active'? [warningGlow.glowOff,  warningGlow.glowOn,  warningGlow.glowOff]  :
+    '0 0 0px rgba(0,0,0,0)';
+
+  const glowDuration = isUrgent ? 1.6 : 2.4;
+
   return (
+    <>
+      {/* Screen flash for urgent boss */}
+      <AnimatePresence>
+        {showFlash && (
+          <motion.div
+            key="boss-flash"
+            initial={{ opacity: 0.16 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+            className="fixed inset-0 z-[60] bg-red-500 pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+
     <motion.div
       initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        x: isUrgent ? [0, -4, 4, -2, 2, 0] : 0,
+        boxShadow: bossGlow,
+      }}
+      transition={{
+        opacity:   { duration: 0.4, ease: 'easeOut' },
+        y:         { duration: 0.4, ease: 'easeOut' },
+        x:         isUrgent ? { duration: 0.5, ease: 'easeInOut' } : { duration: 0 },
+        boxShadow: (isUrgent || status === 'active')
+          ? { duration: glowDuration, repeat: Infinity, ease: 'easeInOut' }
+          : { duration: 0 },
+      }}
       className={`rounded-2xl border p-5 mb-4 ${borderColor} ${bgColor}`}
     >
       {/* ── Header ──────────────────────────────────────────────────────────── */}
@@ -277,7 +325,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             transition={{ duration: 0.3, type: 'spring', stiffness: 280, damping: 22 }}
             className="text-center"
           >
-            <p className="text-sm text-green-400 font-semibold mb-1">Challenge Completed</p>
+            <p className="text-sm text-green-400 font-semibold mb-1">Entity Neutralized. Proceed to claim reward.</p>
             {boss.submission && (
               <p className="text-xs text-muted mb-4">
                 Submitted: {boss.submission.value} {boss.requirements.unit}
@@ -318,7 +366,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             transition={{ duration: 0.35, type: 'spring', stiffness: 300, damping: 20 }}
             className="text-center py-2"
           >
-            <p className="text-lg font-bold text-yellow-400">Boss Defeated</p>
+            <p className="text-lg font-bold text-yellow-400">Protocol Complete. Reward Disbursed.</p>
             {claimXP ? (
               <p className="text-xs text-muted mt-1">
                 +{claimXP.xpGained} XP · Level {claimXP.level}
@@ -340,12 +388,13 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             animate={{ opacity: 1 }}
             className="text-center py-2"
           >
-            <p className="text-sm text-gray-500 font-semibold">The boss escaped the dungeon.</p>
-            <p className="text-xs text-gray-600 mt-1">Challenge window has closed.</p>
+            <p className="text-sm text-gray-500 font-semibold">Engagement window expired.</p>
+            <p className="text-xs text-gray-600 mt-1">Entity no longer accessible. No reward available.</p>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
+    </>
   );
 }
 

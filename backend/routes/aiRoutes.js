@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../config/firebase');
+const { auth, db } = require('../config/firebase');
 const { generateInsight, generateChallenges } = require('../services/ai.service');
 const { getMemory, updateMemory, generateWeeklySummary } = require('../services/aiMemory.service');
+const { generateSystemEvents, markEventsSeen, triggerNarrativeEvent } = require('../services/aiEvents.service');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -78,6 +79,42 @@ router.get('/weekly-summary', authenticate, async (req, res) => {
   } catch (err) {
     console.error('[AI Route] weekly-summary error:', err.message);
     res.json({ summary: 'Another week logged. Keep pushing — review your patterns and sharpen your weaknesses.' });
+  }
+});
+
+// GET /api/ai/events — generate/retrieve today's system feed
+router.get('/events', authenticate, async (req, res) => {
+  try {
+    const events = await generateSystemEvents(req.userId);
+    const unseenCount = events.filter((e) => !e.seen).length;
+    res.json({ events, unseenCount });
+  } catch (err) {
+    console.error('[AI Route] events error:', err.message);
+    res.json({ events: [], unseenCount: 0 });
+  }
+});
+
+// PATCH /api/ai/events/seen — mark all current events as seen
+router.patch('/events/seen', authenticate, async (req, res) => {
+  try {
+    await markEventsSeen(req.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[AI Route] mark-seen error:', err.message);
+    res.json({ ok: false });
+  }
+});
+
+// POST /api/ai/narrative — trigger a narrative event (level-up, rank-up, boss kill)
+router.post('/narrative', authenticate, async (req, res) => {
+  try {
+    const { eventType, payload } = req.body;
+    if (!eventType) return res.status(400).json({ error: 'eventType required' });
+    const event = await triggerNarrativeEvent(req.userId, eventType, payload || {});
+    res.json({ event });
+  } catch (err) {
+    console.error('[AI Route] narrative error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

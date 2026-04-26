@@ -14,6 +14,7 @@ import {
   RunningAnalytics,
 } from '@/lib/api';
 import Header from '@/components/Header';
+import LoadingScreen from '@/components/LoadingScreen';
 import StatCards from '@/components/analytics/StatCards';
 import CompletionChart from '@/components/analytics/CompletionChart';
 import QuestBreakdown from '@/components/analytics/QuestBreakdown';
@@ -78,13 +79,7 @@ export default function AnalyticsPage() {
     load();
   }, [firebaseUser]);
 
-  if (authLoading || !firebaseUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted text-sm">Loading...</p>
-      </div>
-    );
-  }
+  if (authLoading || !firebaseUser) return <LoadingScreen />;
 
   const totalQuestsDone = quests.reduce((s, q) => s + q.completedDays, 0);
 

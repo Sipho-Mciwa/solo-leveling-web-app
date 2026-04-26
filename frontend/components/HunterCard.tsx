@@ -24,33 +24,14 @@ import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProfileAvatar from './ProfileAvatar';
 import RankBadge from './RankBadge';
 import StatsRadarChart from './StatsRadarChart';
+import { resolveAchievementName } from '@/utils/achievementMap';
+import { generateLocalInsight } from '@/utils/systemVoice';
+import SystemMessage from './SystemMessage';
+import { classifyInsightTone, TONE_STYLES } from '@/utils/systemStyles';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
-
-// ─── Title name resolution (IDs → display names) ─────────────────────────────
-
-const TITLE_NAMES: Record<string, string> = {
-  consistent_i: 'Iron Starter', consistent_ii: 'Week Warrior',
-  consistent_iii: 'Fortnight Grinder', consistent_iv: 'Monthly Legend',
-  runner_i: 'First Strides', runner_ii: 'Road Warrior',
-  runner_iii: 'Distance Hunter', runner_iv: 'Iron Legs',
-  discipline_i: 'Daily Perfectionist', discipline_ii: 'Ironclad',
-  discipline_iii: 'Routine Master', discipline_iv: 'Shadow Disciple',
-  intellect_i: 'Scholar', intellect_ii: 'Avid Reader',
-  intellect_iii: 'Knowledge Hunter', intellect_iv: 'Mind of Shadow',
-  recovery_i: "Shadow's Return", recovery_ii: 'Unyielding',
-  recovery_iii: 'Resilient Hunter', recovery_iv: 'Phoenix',
-  boss_i: 'Challenger', boss_ii: 'Boss Slayer',
-  boss_iii: 'Raid Captain', boss_iv: 'Dungeon Breaker',
-  beast_mode: 'Beast Mode', perfect_week: 'Perfect Week',
-  early_riser: 'Early Riser', shadow_monarch: 'Shadow Monarch',
-};
-
-function resolveTitleName(titleStr: string): string {
-  return TITLE_NAMES[titleStr] ?? titleStr;
-}
 
 const RANK_STYLES: Record<Rank, string> = {
   E: 'text-gray-400',
@@ -76,32 +57,6 @@ function getWeakestStat(stats: HunterStats): StatKey {
   return STAT_KEYS.reduce((a, b) => (stats[a] < stats[b] ? a : b));
 }
 
-function generateInsight(
-  stats: HunterStats | null,
-  streakCount: number,
-  questsDone: number,
-  questsTotal: number,
-): string {
-  if (!stats) return 'Log your daily quests to build your hunter profile.';
-  const entries = STAT_KEYS.map((k) => ({ key: k, val: stats[k] }));
-  const weakest = entries.reduce((a, b) => (a.val < b.val ? a : b));
-  const avg     = entries.reduce((s, e) => s + e.val, 0) / 5;
-  if (weakest.val < 20)
-    return `${weakest.key} is critically low. Even five minutes a day compounds over 14 days.`;
-  if (stats.DISCIPLINE >= 85)
-    return 'Your discipline is elite. That consistency separates hunters from the rest.';
-  if (avg >= 75)
-    return 'Balanced and powerful across all attributes. S-Rank is within reach.';
-  if (streakCount >= 14)
-    return `${streakCount}-day streak active. Consistency like this rewires your baseline.`;
-  if (questsDone === questsTotal && questsTotal > 0)
-    return 'Board cleared. Rest tonight — rise again tomorrow.';
-  if (weakest.val < 40)
-    return `${weakest.key} is your weak link. Target it specifically this week.`;
-  if (stats.DISCIPLINE < 40)
-    return 'Discipline drives everything else. Lock in the daily challenges first.';
-  return 'Every rep you skip is a gap in your armor. Fill it.';
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -136,7 +91,7 @@ export default function HunterCard() {
 
   const name         = displayName ?? email?.split('@')[0] ?? 'Hunter';
   const displayTitle     = pendingTitle ?? activeTitle;
-  const displayTitleName = displayTitle ? resolveTitleName(displayTitle) : null;
+  const displayTitleName = displayTitle ? resolveAchievementName(displayTitle) : null;
   const xpNeeded     = xpRequiredForLevel(level);
   const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
 
@@ -173,7 +128,7 @@ export default function HunterCard() {
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const weakestStat: StatKey | null = stats ? getWeakestStat(stats) : null;
-  const insight = generateInsight(stats, streakCount, questsDone, questsTotal);
+  const insight = generateLocalInsight(stats, streakCount, questsDone, questsTotal);
 
   // ── Titles ────────────────────────────────────────────────────────────────
   const showTitles      = (titles?.length ?? 0) > 1;
@@ -214,7 +169,7 @@ export default function HunterCard() {
               <span className="text-[9px] font-semibold uppercase tracking-widest text-green-400">
                 Achievement
               </span>
-              <span className="text-[10px] text-green-300">{recentTitle}</span>
+              <span className="text-[10px] text-green-300">{resolveAchievementName(recentTitle ?? '')}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -482,19 +437,29 @@ export default function HunterCard() {
         {...sectionVariant(0.28)}
         className="px-4 sm:px-6 py-4 border-t border-border"
       >
-        <div className="flex items-center gap-2 mb-2">
-          <p className="text-[10px] text-muted uppercase tracking-widest">
-            {aiInsight ? 'AI Coach' : 'Insight'}
-          </p>
-          {aiInsight && (
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
-              AI
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-accent-light/90 leading-relaxed italic">
-          "{aiInsight ?? insight}"
-        </p>
+        {(() => {
+          const insightText = aiInsight ?? insight;
+          const tone        = classifyInsightTone(insightText);
+          return (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[10px] text-muted uppercase tracking-widest">
+                  {aiInsight ? 'AI Coach' : 'Insight'}
+                </p>
+                {aiInsight && (
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+                    AI
+                  </span>
+                )}
+              </div>
+              <SystemMessage tone={tone} className="p-3">
+                <p className={`text-xs leading-relaxed italic ${TONE_STYLES[tone].text}`}>
+                  "{insightText}"
+                </p>
+              </SystemMessage>
+            </>
+          );
+        })()}
       </motion.div>
 
       {/* ── 8. Title system ──────────────────────────────────────────────────── */}
@@ -517,7 +482,7 @@ export default function HunterCard() {
             <div className="flex flex-wrap gap-1.5">
               {(titles ?? []).map((title) => {
                 const isActive    = title === displayTitle;
-                const displayName = resolveTitleName(title);
+                const displayName = resolveAchievementName(title);
                 return (
                   <motion.button
                     key={title}

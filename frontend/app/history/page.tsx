@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchQuestHistory, fetchChallengeHistory, QuestHistoryRow, ChallengeHistoryRow } from '@/lib/api';
 import Header from '@/components/Header';
 import DashboardTable from '@/components/DashboardTable';
+import HistoryChart from '@/components/HistoryChart';
+import LoadingScreen from '@/components/LoadingScreen';
 
 function formatDisplayMonth(month: string) {
   const [year, m] = month.split('-').map(Number);
@@ -58,13 +60,7 @@ export default function HistoryPage() {
     loadHistory();
   }, [loadHistory]);
 
-  if (authLoading || !firebaseUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted text-sm">Loading...</p>
-      </div>
-    );
-  }
+  if (authLoading || !firebaseUser) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -115,32 +111,33 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Tables */}
-        {!loading && !error && (
-          <div className="space-y-10">
-            <section>
-              <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Quests</h3>
-              <DashboardTable quests={quests} month={month} label="Quest" />
-            </section>
-            <section>
-              <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Daily Challenges</h3>
-              <DashboardTable
-                quests={challenges.map((c) => ({
-                  questId: c.key,
-                  title: c.title,
-                  history: Object.fromEntries(
-                    Object.entries(c.history).map(([date, entry]) => [
-                      date,
-                      { completed: entry.completed, currentValue: 0 },
-                    ])
-                  ),
-                }))}
-                month={month}
-                label="Challenge"
-              />
-            </section>
-          </div>
-        )}
+        {/* Charts + Tables */}
+        {!loading && !error && (() => {
+          const challengeRows = challenges.map((c) => ({
+            questId: c.key,
+            title: c.title,
+            history: Object.fromEntries(
+              Object.entries(c.history).map(([date, entry]) => [
+                date,
+                { completed: entry.completed, currentValue: 0 },
+              ])
+            ),
+          }));
+          return (
+            <div className="space-y-10">
+              <section>
+                <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Quests</h3>
+                <HistoryChart rows={quests} month={month} label="Quests" />
+                <DashboardTable quests={quests} month={month} label="Quest" />
+              </section>
+              <section>
+                <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Daily Challenges</h3>
+                <HistoryChart rows={challengeRows} month={month} label="Daily Challenges" />
+                <DashboardTable quests={challengeRows} month={month} label="Challenge" />
+              </section>
+            </div>
+          );
+        })()}
       </main>
     </div>
   );

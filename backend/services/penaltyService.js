@@ -29,8 +29,8 @@ function buildPenaltyData(userId, level) {
   return {
     userId,
     date: todayStr(),
-    title:       'Penalty Quest: Return from the Shadows',
-    description: 'You disappeared. The system does not forget. Complete this or face the consequences.',
+    title:       'Penalty Protocol: Absence Registered',
+    description: 'Inactivity detected. Penalty protocol activated. Execute assigned repetitions to restore standing.',
     targetValue,
     currentValue: 0,
     unit:         'reps',

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { setActiveTitle } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { resolveAchievementName } from '@/utils/achievementMap';
 import RankBadge from './RankBadge';
 
 export default function RewardsPanel() {
@@ -55,7 +56,7 @@ export default function RewardsPanel() {
                     : 'bg-subtle border border-border text-muted hover:text-white hover:border-accent/30'
                 }`}
               >
-                <span>{title}</span>
+                <span>{resolveAchievementName(title)}</span>
                 {isActive && (
                   <span className="text-[10px] text-accent-light font-medium uppercase tracking-wide">
                     Active

@@ -1,13 +1,14 @@
 const { db } = require('../config/firebase');
 const { getMemory } = require('./aiMemory.service');
+const { VOICE_INSTRUCTION, FALLBACKS, buildMemoryBlock } = require('./systemVoice');
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
-const DEFAULT_INSIGHT = 'Stay consistent today. Complete all challenges.';
+const DEFAULT_INSIGHT = FALLBACKS.insight;
 const DEFAULT_CHALLENGES = [
   {
-    title: 'Complete every daily challenge',
-    description: "Don't skip a single one today — discipline is the difference.",
+    title: 'Complete all daily protocols',
+    description: FALLBACKS.challenge,
     xpReward: 25,
   },
 ];
@@ -124,64 +125,35 @@ async function callAI(prompt, fallback) {
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-function buildMemorySection(memory) {
-  if (!memory) return '';
-  const lines = [];
-  const p = memory.patterns || {};
-  const s = memory.streakHistory || {};
-  const t = memory.trends || {};
-
-  if (t.questCompletion && t.questCompletion !== 'stable') {
-    lines.push(`- Performance trend: ${t.questCompletion}`);
-  }
-  if (p.avgCompletionLast30 !== null && p.avgCompletionLast30 !== undefined) {
-    lines.push(`- 30-day avg completion: ${p.avgCompletionLast30}%`);
-  }
-  if (p.mostMissedHabitTitle) {
-    lines.push(`- Most missed habit: ${p.mostMissedHabitTitle} (missed ${p.mostMissedHabitMissRate}% of days)`);
-  }
-  if (p.dropOffDayLabel) {
-    lines.push(`- Weakest day: ${p.dropOffDayLabel} (${p.dropOffDayCompletionRate ?? '?'}% completion)`);
-  }
-  if (s.longestStreak) {
-    lines.push(`- Longest streak ever: ${s.longestStreak} days`);
-  }
-  if (s.streakBreaks !== undefined) {
-    lines.push(`- Streak breaks last 30 days: ${s.streakBreaks}`);
-  }
-
-  return lines.length > 0 ? `\nHistorical patterns:\n${lines.join('\n')}` : '';
-}
-
 function buildInsightPrompt(ctx) {
-  return `You are a performance coach for a fitness app themed around Solo Leveling manhwa.
+  return `${VOICE_INSTRUCTION}
 
-Hunter profile:
+Hunter data:
 - Rank: ${ctx.rank}, Level: ${ctx.level}
-- Current streak: ${ctx.streak} days
-- Last 7 days: ${ctx.completionRate}% quest completion (${ctx.completedQuests}/${ctx.totalQuests} quests)
-- Missed: ${ctx.missedQuests} quests this week${buildMemorySection(ctx.memory)}
+- Active streak: ${ctx.streak} days
+- 7-day completion: ${ctx.completionRate}% (${ctx.completedQuests}/${ctx.totalQuests} quests)
+- Missed this week: ${ctx.missedQuests} quests${buildMemoryBlock(ctx.memory)}
 
-Write ONE short performance insight (max 2 sentences). Reference their historical patterns if available. Be direct and specific to their numbers. Use a warrior/hunter tone. No greeting, no sign-off. Start immediately with the insight.`;
+Generate one performance assessment. Maximum 2 sentences. Reference specific numbers. Identify the primary deviation from required output, or confirm acceptable status if output is sufficient.`;
 }
 
 function buildChallengesPrompt(ctx) {
-  return `You are a performance coach for a fitness app themed around Solo Leveling manhwa.
+  return `${VOICE_INSTRUCTION}
 
-Hunter profile:
+Hunter data:
 - Rank: ${ctx.rank}, Level: ${ctx.level}
-- Streak: ${ctx.streak} days
-- Last 7 days: ${ctx.completionRate}% quest completion${buildMemorySection(ctx.memory)}
+- Active streak: ${ctx.streak} days
+- 7-day completion: ${ctx.completionRate}%${buildMemoryBlock(ctx.memory)}
 
-Generate exactly 2 personalized daily challenges as a JSON array. Return ONLY the JSON array, no explanation, no markdown:
-[{"title":"short title","description":"one sentence","xpReward":20}]
+Generate exactly 2 targeted daily protocols as a JSON array. Return ONLY the JSON array, no explanation, no markdown:
+[{"title":"short title","description":"one directive sentence","xpReward":20}]
 
-Rules:
-- Title: 3-6 words
-- Description: 1 sentence, imperative tone
+Constraints:
+- Title: 3-6 words, no punctuation
+- Description: one imperative sentence using approved vocabulary
 - xpReward: integer between 15 and 35
-- No running or distance challenges (those are handled separately)
-- If historical patterns are available, target the hunter's most missed habit or weakest day`;
+- No running or distance protocols (tracked separately via Strava)
+- If historical patterns are available, target the highest-miss protocol or lowest output day`;
 }
 
 // ─── JSON parse helper ────────────────────────────────────────────────────────

@@ -12,7 +12,6 @@ import {
 } from '@/lib/api';
 import PenaltyAlert from './PenaltyAlert';
 import WeekendBossCard from './WeekendBossCard';
-import RewardsPanel from './RewardsPanel';
 import UrgencyBanner from './UrgencyBanner';
 import ChallengeSection from './ChallengeSection';
 import QuestSection from './QuestSection';
@@ -76,9 +75,6 @@ export default function Dashboard() {
 
       {/* Quests below — growth layer */}
       <QuestSection />
-
-      {/* Rank & titles */}
-      <RewardsPanel />
     </main>
   );
 }

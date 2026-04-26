@@ -1,4 +1,5 @@
 const { db } = require('../config/firebase');
+const { VOICE_INSTRUCTION, FALLBACKS } = require('./systemVoice');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -164,24 +165,24 @@ async function callAI(prompt) {
 }
 
 function buildWeeklySummaryPrompt(userSnap, memory, last7Rate, last30Rate) {
-  const user = userSnap.exists ? userSnap.data() : {};
-  const missed = memory.patterns?.mostMissedHabitTitle || 'unknown habit';
-  const dropOff = memory.patterns?.dropOffDayLabel || 'an unknown day';
-  const trend = memory.trends?.questCompletion || 'stable';
+  const user    = userSnap.exists ? userSnap.data() : {};
+  const missed  = memory.patterns?.mostMissedHabitTitle  || 'unrecorded';
+  const dropOff = memory.patterns?.dropOffDayLabel        || 'unidentified';
+  const trend   = memory.trends?.questCompletion          || 'stable';
 
-  return `You are a performance coach writing a weekly review for a Solo Leveling fitness app hunter.
+  return `${VOICE_INSTRUCTION}
 
-Hunter stats this week:
+Hunter weekly data:
 - Rank: ${user.rank || 'E'}, Level: ${user.level || 1}
-- Streak: ${user.streakCount || 0} days
-- Quest completion last 7 days: ${last7Rate ?? 'unknown'}%
-- Quest completion last 30 days: ${last30Rate ?? 'unknown'}%
+- Active streak: ${user.streakCount || 0} days
+- 7-day completion: ${last7Rate ?? 'unrecorded'}%
+- 30-day completion: ${last30Rate ?? 'unrecorded'}%
 - Performance trend: ${trend}
-- Most missed habit: ${missed}
-- Weakest day: ${dropOff}
-- Longest streak ever: ${memory.streakHistory?.longestStreak || 0} days
+- Highest-miss protocol: ${missed}
+- Lowest output day: ${dropOff}
+- Peak streak on record: ${memory.streakHistory?.longestStreak || 0} days
 
-Write a 2-3 sentence weekly summary. Be honest about what they did well and what needs work. Use a direct warrior tone. No bullet points. No greeting.`;
+Generate a 2-sentence weekly performance evaluation. Identify what output was acceptable and what requires correction. Reference specific metrics.`;
 }
 
 // ─── Core: updateMemory ───────────────────────────────────────────────────────
@@ -309,8 +310,7 @@ async function generateWeeklySummary(userId) {
     completionRate(quests30)
   );
 
-  const DEFAULT_SUMMARY =
-    'Another week logged. Review your missed habits and target them specifically next week. Consistency separates hunters.';
+  const DEFAULT_SUMMARY = FALLBACKS.weeklySummary;
 
   const text = (await callAI(prompt)) || DEFAULT_SUMMARY;
 

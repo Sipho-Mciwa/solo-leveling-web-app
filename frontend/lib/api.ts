@@ -163,6 +163,22 @@ export function fetchAIChallenges() {
   return apiFetch<{ challenges: AISuggestion[] }>('/api/ai/challenges', { method: 'POST' });
 }
 
+// AI System Events
+export function fetchSystemEvents() {
+  return apiFetch<SystemEventsResponse>('/api/ai/events');
+}
+
+export function markSystemEventsSeen() {
+  return apiFetch<{ ok: boolean }>('/api/ai/events/seen', { method: 'PATCH' });
+}
+
+export function triggerNarrativeEvent(eventType: string, payload?: Record<string, unknown>) {
+  return apiFetch<{ event: SystemEvent }>('/api/ai/narrative', {
+    method: 'POST',
+    body: JSON.stringify({ eventType, payload }),
+  });
+}
+
 // Analytics
 export function fetchAnalyticsOverview() {
   return apiFetch<AnalyticsOverview>('/api/analytics/overview');
@@ -467,6 +483,27 @@ export interface AISuggestion {
   title: string;
   description: string;
   xpReward: number;
+}
+
+export type SystemEventType = 'system' | 'warning' | 'alert' | 'narrative' | 'special';
+export type SystemEventIcon = 'system' | 'warning' | 'trophy' | 'boss' | 'star' | 'xp';
+export type SystemEventPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface SystemEvent {
+  id: string;
+  type: SystemEventType;
+  icon: SystemEventIcon;
+  title: string;
+  message: string;
+  priority: SystemEventPriority;
+  seen: boolean;
+  tag?: string;
+  timestamp: string;
+}
+
+export interface SystemEventsResponse {
+  events: SystemEvent[];
+  unseenCount: number;
 }
 
 export interface PenaltyQuest {

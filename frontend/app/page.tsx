@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
 import HunterCard from '@/components/HunterCard';
+import SystemFeed from '@/components/SystemFeed';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function HomePage() {
   const { firebaseUser, loading } = useAuth();
@@ -16,13 +18,7 @@ export default function HomePage() {
     }
   }, [loading, firebaseUser, router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted text-sm">Loading...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!firebaseUser) return null;
 
@@ -31,6 +27,7 @@ export default function HomePage() {
       <Header />
       <main className="max-w-sm mx-auto px-6 py-10">
         <HunterCard />
+        <SystemFeed />
       </main>
     </div>
   );

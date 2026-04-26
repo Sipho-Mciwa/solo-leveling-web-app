@@ -67,20 +67,6 @@ export function fetchTitleProgress() {
   return apiFetch<TitleProgressResponse>('/api/rank/titles/progress');
 }
 
-// Boss
-export function generateBossQuest() {
-  return apiFetch<{ generated: boolean; boss?: BossQuest }>('/api/boss/generate', { method: 'POST' });
-}
-export function fetchCurrentBoss() {
-  return apiFetch<{ boss: BossQuest | null }>('/api/boss/current');
-}
-export function updateBossProgress(bossId: string, currentValue: number) {
-  return apiFetch<{ completed: boolean; currentValue: number; xp?: { xp: number; level: number } }>(
-    `/api/boss/${bossId}`,
-    { method: 'PATCH', body: JSON.stringify({ currentValue }) }
-  );
-}
-
 // Penalty
 export function generatePenalty() {
   return apiFetch<{ generated: boolean; penalty?: PenaltyQuest }>('/api/penalty/generate', { method: 'POST' });
@@ -141,6 +127,31 @@ export function syncStravaOnLogin() {
 
 export function fetchRunningAnalytics() {
   return apiFetch<RunningAnalytics>('/api/analytics/running');
+}
+
+// Weekend Boss
+export function generateWeekendBoss() {
+  return apiFetch<{ generated: boolean; reason?: string; boss?: WeekendBoss }>(
+    '/api/boss/weekend/generate',
+    { method: 'POST' }
+  );
+}
+
+export function fetchWeekendBoss() {
+  return apiFetch<{ boss: WeekendBoss | null }>('/api/boss/weekend/current');
+}
+
+export function completeWeekendBoss(bossId: string, value: number, notes: string) {
+  return apiFetch<WeekendBossCompleteResult>(`/api/boss/weekend/${bossId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ value, notes }),
+  });
+}
+
+export function claimWeekendBossReward(bossId: string) {
+  return apiFetch<WeekendBossClaimResult>(`/api/boss/weekend/${bossId}/claim`, {
+    method: 'POST',
+  });
 }
 
 // AI Coach
@@ -301,20 +312,47 @@ export interface TitleProgressResponse {
   categories: string[];
 }
 
-export interface BossQuest {
+export interface WeekendBossRequirement {
+  type: 'run' | 'reps';
+  label: string;
+  minValue: number;
+  unit: string;
+}
+
+export interface WeekendBossSubmission {
+  value: number;
+  notes: string;
+  submittedAt: string;
+}
+
+export type WeekendBossStatus = 'active' | 'completed' | 'claimed' | 'expired';
+
+export interface WeekendBoss {
   id: string;
   userId: string;
-  weekStart: string;
+  weekendId: string;
   title: string;
   description: string;
-  questType: string;
-  mixedTypes: string[] | null;
-  unit: string;
-  targetValue: number;
-  currentValue: number;
+  flavourText: string;
+  requirements: WeekendBossRequirement;
   xpReward: number;
-  completed: boolean;
-  difficulty: number;
+  startTime: string;
+  endTime: string;
+  status: WeekendBossStatus;
+  submission: WeekendBossSubmission | null;
+  claimedAt: string | null;
+}
+
+export interface WeekendBossCompleteResult {
+  success: boolean;
+  message: string;
+  xpReward?: number;
+}
+
+export interface WeekendBossClaimResult {
+  claimed: boolean;
+  message?: string;
+  xp?: XPResult;
 }
 
 export interface DailyChallenge {

@@ -3,7 +3,6 @@ const { addXp } = require('./xpService');
 const { updateStreak } = require('./streakService');
 const { applyDifficultyScaling } = require('./difficultyService');
 const { updateUserRank } = require('./rankService');
-const { syncBossFromQuest } = require('./bossService');
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -158,8 +157,6 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
     completed: isComplete,
   });
 
-  // Silently sync weekly boss if this quest type matches
-  syncBossFromQuest(userId, quest.title, delta).catch(() => {});
 
   let xpResult = null;
   let streakResult = null;

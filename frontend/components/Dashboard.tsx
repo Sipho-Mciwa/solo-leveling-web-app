@@ -3,9 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useQuests } from '@/context/QuestContext';
 import { useAuth } from '@/context/AuthContext';
-import { fetchActivePenalty, fetchCurrentBoss, PenaltyQuest, BossQuest } from '@/lib/api';
+import {
+  fetchActivePenalty,
+  fetchWeekendBoss,
+  generateWeekendBoss,
+  PenaltyQuest,
+  WeekendBoss,
+} from '@/lib/api';
 import PenaltyAlert from './PenaltyAlert';
-import BossQuestCard from './BossQuestCard';
+import WeekendBossCard from './WeekendBossCard';
 import RewardsPanel from './RewardsPanel';
 import UrgencyBanner from './UrgencyBanner';
 import ChallengeSection from './ChallengeSection';
@@ -16,13 +22,21 @@ export default function Dashboard() {
   const { quests } = useQuests();
   const { firebaseUser } = useAuth();
 
-  const [penalty, setPenalty] = useState<PenaltyQuest | null>(null);
-  const [boss, setBoss] = useState<BossQuest | null>(null);
+  const [penalty,     setPenalty]     = useState<PenaltyQuest | null>(null);
+  const [weekendBoss, setWeekendBoss] = useState<WeekendBoss | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
     fetchActivePenalty().then((r) => setPenalty(r.penalty)).catch(() => {});
-    fetchCurrentBoss().then((r) => setBoss(r.boss)).catch(() => {});
+
+    // Weekend boss: auto-generate on weekends then fetch
+    const day = new Date().getDay();
+    const isWeekend = day === 0 || day === 6;
+    if (isWeekend) {
+      generateWeekendBoss()
+        .then((r) => setWeekendBoss(r.boss ?? null))
+        .catch(() => fetchWeekendBoss().then((r) => setWeekendBoss(r.boss)).catch(() => {}));
+    }
   }, [firebaseUser]);
 
   return (
@@ -32,8 +46,10 @@ export default function Dashboard() {
         <PenaltyAlert penalty={penalty} onUpdate={setPenalty} />
       )}
 
-      {/* Boss quest */}
-      {boss && <BossQuestCard boss={boss} onUpdate={setBoss} />}
+      {/* Weekend boss — high-stakes event, shown above weekly boss */}
+      {weekendBoss && (
+        <WeekendBossCard boss={weekendBoss} onUpdate={setWeekendBoss} />
+      )}
 
       {/* Urgency banner */}
       <UrgencyBanner quests={quests} />

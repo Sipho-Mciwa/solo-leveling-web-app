@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { fetchUserProfile, generateDailyQuests, generateBossQuest, generatePenalty, generateDailyChallenges, syncStravaOnLogin, UserProfile } from '@/lib/api';
+import { fetchUserProfile, generateDailyQuests, generatePenalty, generateDailyChallenges, syncStravaOnLogin, UserProfile } from '@/lib/api';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -33,7 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Run all generation tasks in parallel on login/session restore
       await Promise.all([
         generateDailyQuests(),
-        generateBossQuest(),
         generatePenalty(),
         generateDailyChallenges(),
       ]);

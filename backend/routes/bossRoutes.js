@@ -1,6 +1,11 @@
 const express = require('express');
 const router  = express.Router();
-const { generateBossQuest, getCurrentBoss, updateBossProgress } = require('../services/bossService');
+const {
+  generateWeekendBoss,
+  getWeekendBoss,
+  completeWeekendBoss,
+  claimWeekendReward,
+} = require('../services/weekendBossService');
 const { auth } = require('../config/firebase');
 
 async function authenticate(req, res, next) {
@@ -15,32 +20,43 @@ async function authenticate(req, res, next) {
   }
 }
 
-// POST /api/boss/generate  — called on login
-router.post('/generate', authenticate, async (req, res) => {
+// ── Weekend boss ──────────────────────────────────────────────────────────────
+
+// POST /api/boss/weekend/generate
+router.post('/weekend/generate', authenticate, async (req, res) => {
   try {
-    res.json(await generateBossQuest(req.userId));
+    res.json(await generateWeekendBoss(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/boss/current  — returns this week's boss or null
-router.get('/current', authenticate, async (req, res) => {
+// GET /api/boss/weekend/current
+router.get('/weekend/current', authenticate, async (req, res) => {
   try {
-    res.json(await getCurrentBoss(req.userId));
+    res.json(await getWeekendBoss(req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PATCH /api/boss/:id  — log progress
-router.patch('/:id', authenticate, async (req, res) => {
-  const { currentValue } = req.body;
-  if (typeof currentValue !== 'number') {
-    return res.status(400).json({ error: 'currentValue must be a number' });
+// POST /api/boss/weekend/:id/complete
+router.post('/weekend/:id/complete', authenticate, async (req, res) => {
+  const { value, notes } = req.body;
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: 'value is required' });
   }
   try {
-    res.json(await updateBossProgress(req.params.id, req.userId, currentValue));
+    res.json(await completeWeekendBoss(req.params.id, req.userId, { value, notes }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/boss/weekend/:id/claim
+router.post('/weekend/:id/claim', authenticate, async (req, res) => {
+  try {
+    res.json(await claimWeekendReward(req.params.id, req.userId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

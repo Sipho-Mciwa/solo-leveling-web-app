@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { getUserStats } = require('./statsService');
+const { AppError } = require('../utils/AppError');
 
 // ─── Rank chain & requirements ─────────────────────────────────────────────────
 
@@ -55,20 +56,13 @@ function checkAllMet(reqs, user, stats) {
 // ─── Core rank evaluation ──────────────────────────────────────────────────────
 
 /**
- * Idempotent, upgrade-only rank update.
- * Reads current rank, tries to promote one rank at a time.
- * Also awards the shadow_monarch title on S-Rank.
+ * Pure function: given a user doc and their stats, computes the promoted rank
+ * and any title/activeTitle updates. Does no I/O — callers decide how/when to
+ * persist `updates` (plain update vs. as part of a larger transaction).
  */
-async function updateUserRank(userId) {
-  const [userSnap, stats] = await Promise.all([
-    db.collection('users').doc(userId).get(),
-    getUserStats(userId),
-  ]);
-  if (!userSnap.exists) throw new Error('User not found');
-
-  const user         = userSnap.data();
-  const currentRank  = user.rank || 'E';
-  const currentIdx   = RANK_ORDER.indexOf(currentRank);
+function computePromotion(user, stats) {
+  const currentRank = user.rank || 'E';
+  const currentIdx  = RANK_ORDER.indexOf(currentRank);
 
   let promotedRank = currentRank;
 
@@ -83,7 +77,7 @@ async function updateUserRank(userId) {
 
   const updates = { rank: promotedRank };
 
-  // Award shadow_monarch title on S-Rank (fire-and-forget handled by caller)
+  // Award shadow_monarch title on S-Rank
   if (promotedRank === 'S') {
     const existingTitles = user.titles || [];
     if (!existingTitles.includes('shadow_monarch')) {
@@ -96,14 +90,38 @@ async function updateUserRank(userId) {
     updates.activeTitle = user.titles[0];
   }
 
-  await db.collection('users').doc(userId).update(updates);
-
   return {
-    rank:        promotedRank,
-    titles:      updates.titles ?? user.titles ?? [],
-    activeTitle: updates.activeTitle ?? user.activeTitle ?? null,
-    promoted:    promotedRank !== currentRank,
+    updates,
+    result: {
+      rank:        promotedRank,
+      titles:      updates.titles ?? user.titles ?? [],
+      activeTitle: updates.activeTitle ?? user.activeTitle ?? null,
+      promoted:    promotedRank !== currentRank,
+    },
   };
+}
+
+/**
+ * Idempotent, upgrade-only rank update.
+ * Reads current rank, tries to promote one rank at a time.
+ * Also awards the shadow_monarch title on S-Rank.
+ *
+ * Stats are read outside the transaction — they're derived, read-only inputs
+ * (not concurrently mutated by this operation), only the user doc read+write
+ * needs to be atomic against concurrent rank-update calls for the same user.
+ */
+async function updateUserRank(userId) {
+  const userRef = db.collection('users').doc(userId);
+  const stats = await getUserStats(userId);
+
+  return db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
+
+    const { updates, result } = computePromotion(userSnap.data(), stats);
+    tx.update(userRef, updates);
+    return result;
+  });
 }
 
 /**
@@ -121,7 +139,7 @@ async function getRankProgress(userId) {
     db.collection('users').doc(userId).get(),
     getUserStats(userId),
   ]);
-  if (!userSnap.exists) throw new Error('User not found');
+  if (!userSnap.exists) throw new AppError('User not found', 404);
 
   const user        = userSnap.data();
   const currentRank = user.rank || 'E';
@@ -161,14 +179,17 @@ async function getRankProgress(userId) {
  * Switch which title is active. Accepts both new IDs and legacy name strings.
  */
 async function setActiveTitle(userId, title) {
-  const userRef  = db.collection('users').doc(userId);
-  const userSnap = await userRef.get();
-  if (!userSnap.exists) throw new Error('User not found');
-  const user = userSnap.data();
+  const userRef = db.collection('users').doc(userId);
 
-  if (!user.titles?.includes(title)) throw new Error('Title not earned yet');
-  await userRef.update({ activeTitle: title });
-  return { activeTitle: title };
+  return db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
+    const user = userSnap.data();
+
+    if (!user.titles?.includes(title)) throw new AppError('Title not earned yet', 400);
+    tx.update(userRef, { activeTitle: title });
+    return { activeTitle: title };
+  });
 }
 
-module.exports = { updateUserRank, getUserRank, getRankProgress, setActiveTitle, RANK_REQUIREMENTS, RANK_ORDER };
+module.exports = { updateUserRank, getUserRank, getRankProgress, setActiveTitle, computePromotion, RANK_REQUIREMENTS, RANK_ORDER };

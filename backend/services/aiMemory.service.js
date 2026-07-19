@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { VOICE_INSTRUCTION, FALLBACKS } = require('./systemVoice');
+const { logger } = require('../utils/logger');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ async function callAI(prompt) {
       const result = await model.generateContent(prompt);
       return result.response.text().trim();
     } catch (e) {
-      console.error('[AIMemory] Gemini failed:', e.message);
+      logger.error({ err: e }, '[AIMemory] Gemini failed');
     }
   }
   if (process.env.GROQ_API_KEY) {
@@ -158,7 +159,7 @@ async function callAI(prompt) {
       });
       return completion.choices[0].message.content.trim();
     } catch (e) {
-      console.error('[AIMemory] Groq failed:', e.message);
+      logger.error({ err: e }, '[AIMemory] Groq failed');
     }
   }
   return null;
@@ -267,7 +268,7 @@ async function updateMemory(userId) {
     // Non-critical
   }
 
-  console.log(`[AIMemory] Updated memory for ${userId} — trend: ${trend}, streak breaks: ${streakBreaks}`);
+  logger.info({ userId, trend, streakBreaks }, '[AIMemory] Updated memory');
   return memory;
 }
 

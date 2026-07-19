@@ -1,49 +1,28 @@
 const express = require('express');
+const { z } = require('zod');
 const router  = express.Router();
 const { generatePenalty, getActivePenalty, updatePenaltyProgress } = require('../services/penaltyService');
-const { auth } = require('../config/firebase');
+const { authenticate } = require('../middleware/authenticate');
+const { asyncHandler } = require('../middleware/asyncHandler');
+const { validateBody } = require('../middleware/validate');
 
-async function authenticate(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
-  try {
-    const decoded = await auth.verifyIdToken(header.split('Bearer ')[1]);
-    req.userId = decoded.uid;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}
+const updateProgressSchema = z.object({
+  currentValue: z.number().finite().min(0),
+});
 
 // POST /api/penalty/generate  — called on login
-router.post('/generate', authenticate, async (req, res) => {
-  try {
-    res.json(await generatePenalty(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.post('/generate', authenticate, asyncHandler(async (req, res) => {
+  res.json(await generatePenalty(req.userId));
+}));
 
 // GET /api/penalty/active  — returns today's penalty quest or null
-router.get('/active', authenticate, async (req, res) => {
-  try {
-    res.json(await getActivePenalty(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/active', authenticate, asyncHandler(async (req, res) => {
+  res.json(await getActivePenalty(req.userId));
+}));
 
 // PATCH /api/penalty/:id  — log progress
-router.patch('/:id', authenticate, async (req, res) => {
-  const { currentValue } = req.body;
-  if (typeof currentValue !== 'number') {
-    return res.status(400).json({ error: 'currentValue must be a number' });
-  }
-  try {
-    res.json(await updatePenaltyProgress(req.params.id, req.userId, currentValue));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.patch('/:id', authenticate, validateBody(updateProgressSchema), asyncHandler(async (req, res) => {
+  res.json(await updatePenaltyProgress(req.params.id, req.userId, req.body.currentValue));
+}));
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const { db } = require('../config/firebase');
 const { getMemory } = require('./aiMemory.service');
 const { VOICE_INSTRUCTION, FALLBACKS, buildMemoryBlock } = require('./systemVoice');
+const { logger } = require('../utils/logger');
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ async function getCachedAI(userId) {
       if (data.date === todayStr()) return data;
     }
   } catch (e) {
-    console.error('[AI] Cache read error:', e.message);
+    logger.error({ err: e }, '[AI] Cache read error');
   }
   return null;
 }
@@ -40,7 +41,7 @@ async function setCachedAI(userId, insight, challenges) {
       challenges,
     });
   } catch (e) {
-    console.error('[AI] Cache write error:', e.message);
+    logger.error({ err: e }, '[AI] Cache write error');
   }
 }
 
@@ -109,17 +110,17 @@ async function callAI(prompt, fallback) {
     try {
       return await callGemini(prompt);
     } catch (e) {
-      console.error('[AI] Gemini failed:', e.message);
+      logger.error({ err: e }, '[AI] Gemini failed');
     }
   }
   if (process.env.GROQ_API_KEY) {
     try {
       return await callGroq(prompt);
     } catch (e) {
-      console.error('[AI] Groq failed:', e.message);
+      logger.error({ err: e }, '[AI] Groq failed');
     }
   }
-  console.warn('[AI] All providers failed — using default response');
+  logger.warn('[AI] All providers failed — using default response');
   return fallback;
 }
 
@@ -152,7 +153,7 @@ Constraints:
 - Title: 3-6 words, no punctuation
 - Description: one imperative sentence using approved vocabulary
 - xpReward: integer between 15 and 35
-- No running or distance protocols (tracked separately via Strava)
+- No running or distance protocols (tracked separately via the Running quest)
 - If historical patterns are available, target the highest-miss protocol or lowest output day`;
 }
 
@@ -200,7 +201,7 @@ async function generateChallenges(userId) {
     challenges = parseChallengesJSON(raw);
     if (!challenges || challenges.length === 0) throw new Error('Empty parse');
   } catch {
-    console.error('[AI] Challenge parse failed, using default');
+    logger.error('[AI] Challenge parse failed, using default');
     challenges = DEFAULT_CHALLENGES;
   }
 

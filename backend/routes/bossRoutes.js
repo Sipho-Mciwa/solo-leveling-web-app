@@ -1,4 +1,5 @@
 const express = require('express');
+const { z } = require('zod');
 const router  = express.Router();
 const {
   generateWeekendBoss,
@@ -6,60 +7,36 @@ const {
   completeWeekendBoss,
   claimWeekendReward,
 } = require('../services/weekendBossService');
-const { auth } = require('../config/firebase');
+const { authenticate } = require('../middleware/authenticate');
+const { asyncHandler } = require('../middleware/asyncHandler');
+const { validateBody } = require('../middleware/validate');
 
-async function authenticate(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
-  try {
-    const decoded = await auth.verifyIdToken(header.split('Bearer ')[1]);
-    req.userId = decoded.uid;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}
+const completeSchema = z.object({
+  value: z.union([z.number(), z.string()]),
+  notes: z.string().max(500).optional(),
+});
 
 // ── Weekend boss ──────────────────────────────────────────────────────────────
 
 // POST /api/boss/weekend/generate
-router.post('/weekend/generate', authenticate, async (req, res) => {
-  try {
-    res.json(await generateWeekendBoss(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.post('/weekend/generate', authenticate, asyncHandler(async (req, res) => {
+  res.json(await generateWeekendBoss(req.userId));
+}));
 
 // GET /api/boss/weekend/current
-router.get('/weekend/current', authenticate, async (req, res) => {
-  try {
-    res.json(await getWeekendBoss(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/weekend/current', authenticate, asyncHandler(async (req, res) => {
+  res.json(await getWeekendBoss(req.userId));
+}));
 
 // POST /api/boss/weekend/:id/complete
-router.post('/weekend/:id/complete', authenticate, async (req, res) => {
+router.post('/weekend/:id/complete', authenticate, validateBody(completeSchema), asyncHandler(async (req, res) => {
   const { value, notes } = req.body;
-  if (value === undefined || value === null) {
-    return res.status(400).json({ error: 'value is required' });
-  }
-  try {
-    res.json(await completeWeekendBoss(req.params.id, req.userId, { value, notes }));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  res.json(await completeWeekendBoss(req.params.id, req.userId, { value, notes }));
+}));
 
 // POST /api/boss/weekend/:id/claim
-router.post('/weekend/:id/claim', authenticate, async (req, res) => {
-  try {
-    res.json(await claimWeekendReward(req.params.id, req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.post('/weekend/:id/claim', authenticate, asyncHandler(async (req, res) => {
+  res.json(await claimWeekendReward(req.params.id, req.userId));
+}));
 
 module.exports = router;

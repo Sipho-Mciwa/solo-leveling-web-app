@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { fetchUserProfile, generateDailyQuests, generatePenalty, generateDailyChallenges, syncStravaOnLogin, UserProfile } from '@/lib/api';
+import { fetchUserProfile, generateDailyQuests, generatePenalty, generateDailyChallenges, UserProfile } from '@/lib/api';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -36,8 +36,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         generatePenalty(),
         generateDailyChallenges(),
       ]);
-      // Fire-and-forget: sync Strava in background without blocking login
-      syncStravaOnLogin().catch(() => {});
     } catch (err) {
       console.error('Failed to load profile:', err);
     }

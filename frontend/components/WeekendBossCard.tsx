@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   WeekendBoss,
@@ -48,7 +48,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   const { refreshProfile } = useAuth();
 
   const [status,    setStatus]    = useState<WeekendBossStatus>(boss.status);
-  const [timeLeft,  setTimeLeft]  = useState<TimeLeft>(computeTimeLeft(boss.endTime));
+  const [isUrgent,  setIsUrgent]  = useState(() => computeTimeLeft(boss.endTime).total < 3_600_000);
   const [inputVal,  setInputVal]  = useState('');
   const [notes,     setNotes]     = useState('');
   const [error,     setError]     = useState<string | null>(null);
@@ -56,7 +56,6 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   const [claiming,  setClaiming]  = useState(false);
   const [claimXP,   setClaimXP]   = useState<XPResult | null>(null);
 
-  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showFlash, setShowFlash] = useState(false);
 
   // One-time screen flash when an urgent boss first renders
@@ -69,18 +68,24 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live countdown
+  // isUrgent/expired only flip at most once each over the boss's lifetime, so
+  // these are scheduled as one-shot timeouts rather than a per-second interval
+  // — the countdown digits below tick every second in their own child
+  // component instead, so this component (and its shake/glow animations)
+  // doesn't re-render 60x/minute for no visual benefit.
   useEffect(() => {
     if (status !== 'active') return;
-    intervalRef.current = setInterval(() => {
-      const tl = computeTimeLeft(boss.endTime);
-      setTimeLeft(tl);
-      if (tl.total === 0) {
-        setStatus('expired');
-        clearInterval(intervalRef.current!);
-      }
-    }, 1000);
-    return () => clearInterval(intervalRef.current!);
+
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    const { total } = computeTimeLeft(boss.endTime);
+    const msUntilUrgent = total - 3_600_000;
+
+    if (msUntilUrgent > 0) {
+      timeouts.push(setTimeout(() => setIsUrgent(true), msUntilUrgent));
+    }
+    timeouts.push(setTimeout(() => setStatus('expired'), total));
+
+    return () => timeouts.forEach(clearTimeout);
   }, [boss.endTime, status]);
 
   // ── Submit completion ────────────────────────────────────────────────────────
@@ -129,12 +134,12 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   }
 
   // ── Styles ────────────────────────────────────────────────────────────────────
-  const isUrgent   = timeLeft.total < 3_600_000 && status === 'active'; // < 1 hour
+  const urgent      = isUrgent && status === 'active'; // < 1 hour left
   const borderColor =
     status === 'claimed'  ? 'border-yellow-400/50' :
     status === 'expired'  ? 'border-gray-600/40'   :
     status === 'completed'? 'border-green-500/40'  :
-    isUrgent              ? 'border-red-500/50'    :
+    urgent                ? 'border-red-500/50'    :
                             'border-red-600/30';
 
   const bgColor =
@@ -147,11 +152,11 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   const warningGlow  = TONE_STYLES.warning;
 
   const bossGlow =
-    isUrgent          ? [criticalGlow.glowOff, criticalGlow.glowOn, criticalGlow.glowOff] :
+    urgent            ? [criticalGlow.glowOff, criticalGlow.glowOn, criticalGlow.glowOff] :
     status === 'active'? [warningGlow.glowOff,  warningGlow.glowOn,  warningGlow.glowOff]  :
     '0 0 0px rgba(0,0,0,0)';
 
-  const glowDuration = isUrgent ? 1.6 : 2.4;
+  const glowDuration = urgent ? 1.6 : 2.4;
 
   return (
     <>
@@ -173,14 +178,14 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
       animate={{
         opacity: 1,
         y: 0,
-        x: isUrgent ? [0, -4, 4, -2, 2, 0] : 0,
+        x: urgent ? [0, -4, 4, -2, 2, 0] : 0,
         boxShadow: bossGlow,
       }}
       transition={{
         opacity:   { duration: 0.4, ease: 'easeOut' },
         y:         { duration: 0.4, ease: 'easeOut' },
-        x:         isUrgent ? { duration: 0.5, ease: 'easeInOut' } : { duration: 0 },
-        boxShadow: (isUrgent || status === 'active')
+        x:         urgent ? { duration: 0.5, ease: 'easeInOut' } : { duration: 0 },
+        boxShadow: (urgent || status === 'active')
           ? { duration: glowDuration, repeat: Infinity, ease: 'easeInOut' }
           : { duration: 0 },
       }}
@@ -210,45 +215,11 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
 
       {/* ── Lore ────────────────────────────────────────────────────────────── */}
       <p className="text-xs text-muted mt-3 leading-relaxed">{boss.description}</p>
-      <p className="text-[11px] text-red-400/70 italic mt-1.5">"{boss.flavourText}"</p>
+      <p className="text-[11px] text-red-400/70 italic mt-1.5">&quot;{boss.flavourText}&quot;</p>
 
       {/* ── Countdown ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {status === 'active' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="mt-4 mb-4"
-          >
-            <p className="text-[10px] text-muted uppercase tracking-widest mb-2">Time remaining</p>
-            <div className="flex items-center gap-3">
-              {[
-                { val: timeLeft.hours,   label: 'HRS' },
-                { val: timeLeft.minutes, label: 'MIN' },
-                { val: timeLeft.seconds, label: 'SEC' },
-              ].map(({ val, label }, i) => (
-                <div key={label} className="flex items-center gap-3">
-                  {i > 0 && <span className={`text-lg font-bold ${isUrgent ? 'text-red-400' : 'text-muted'}`}>:</span>}
-                  <div className="text-center">
-                    <motion.p
-                      key={val}
-                      initial={{ opacity: 0.6, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.15 }}
-                      className={`text-2xl font-bold tabular-nums leading-none ${
-                        isUrgent ? 'text-red-400' : 'text-white'
-                      }`}
-                    >
-                      {pad(val)}
-                    </motion.p>
-                    <p className="text-[9px] text-muted mt-1 tracking-widest">{label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
+        {status === 'active' && <CountdownTimer endTime={boss.endTime} isUrgent={urgent} />}
       </AnimatePresence>
 
       {/* ── Requirement ─────────────────────────────────────────────────────── */}
@@ -397,6 +368,61 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
     </>
   );
 }
+
+// ─── Countdown timer ──────────────────────────────────────────────────────────
+// Ticks every second in its own local state so the parent card (and its
+// shake/glow animations) doesn't re-render 60x/minute.
+
+const CountdownTimer = memo(function CountdownTimer({
+  endTime,
+  isUrgent,
+}: {
+  endTime: string;
+  isUrgent: boolean;
+}) {
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => computeTimeLeft(endTime));
+
+  useEffect(() => {
+    const interval = setInterval(() => setTimeLeft(computeTimeLeft(endTime)), 1000);
+    return () => clearInterval(interval);
+  }, [endTime]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="mt-4 mb-4"
+    >
+      <p className="text-[10px] text-muted uppercase tracking-widest mb-2">Time remaining</p>
+      <div className="flex items-center gap-3">
+        {[
+          { val: timeLeft.hours,   label: 'HRS' },
+          { val: timeLeft.minutes, label: 'MIN' },
+          { val: timeLeft.seconds, label: 'SEC' },
+        ].map(({ val, label }, i) => (
+          <div key={label} className="flex items-center gap-3">
+            {i > 0 && <span className={`text-lg font-bold ${isUrgent ? 'text-red-400' : 'text-muted'}`}>:</span>}
+            <div className="text-center">
+              <motion.p
+                key={val}
+                initial={{ opacity: 0.6, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.15 }}
+                className={`text-2xl font-bold tabular-nums leading-none ${
+                  isUrgent ? 'text-red-400' : 'text-white'
+                }`}
+              >
+                {pad(val)}
+              </motion.p>
+              <p className="text-[9px] text-muted mt-1 tracking-widest">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+});
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 

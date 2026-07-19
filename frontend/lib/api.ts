@@ -108,27 +108,6 @@ export function fetchStats() {
   return apiFetch<HunterStats>('/api/stats');
 }
 
-// Strava
-export function fetchStravaStatus() {
-  return apiFetch<{ connected: boolean }>('/api/strava/status');
-}
-
-export function fetchStravaAuthUrl() {
-  return apiFetch<{ url: string }>('/api/strava/auth');
-}
-
-export function syncStrava() {
-  return apiFetch<StravaSyncResponse>('/api/strava/sync');
-}
-
-export function syncStravaOnLogin() {
-  return apiFetch<{ started: boolean }>('/api/strava/sync-on-login', { method: 'POST' });
-}
-
-export function fetchRunningAnalytics() {
-  return apiFetch<RunningAnalytics>('/api/analytics/running');
-}
-
 // Weekend Boss
 export function generateWeekendBoss() {
   return apiFetch<{ generated: boolean; reason?: string; boss?: WeekendBoss }>(
@@ -237,6 +216,20 @@ export interface QuestUpdateResult {
 export interface QuestDayEntry {
   completed: boolean;
   currentValue: number;
+}
+
+// Shared shape consumed by DashboardTable/HistoryChart — both quest rows
+// (numeric progress) and challenge rows (boolean-only) render through this,
+// so `currentValue` is optional rather than every challenge row faking a `0`.
+export interface HistoryDayEntry {
+  completed: boolean;
+  currentValue?: number;
+}
+
+export interface HistoryRow {
+  questId: string;
+  title: string;
+  history: Record<string, HistoryDayEntry>; // key = "YYYY-MM-DD"
 }
 
 export interface QuestHistoryRow {
@@ -432,51 +425,6 @@ export interface XPResult {
   xpGained: number;
   leveledUp: boolean;
   previousLevel: number;
-}
-
-export interface StravaSyncActivityResult {
-  activityId: string;
-  distanceKm: number;
-  date: string;
-  questFound: boolean;
-  alreadyCompleted?: boolean;
-  belowTarget?: boolean;
-  completed?: boolean;
-  xp?: XPResult;
-  bonusXp?: number;
-  target?: number;
-}
-
-export interface StravaSyncResponse {
-  processed: number;
-  results: StravaSyncActivityResult[];
-}
-
-export interface RunningWeeklyData {
-  week: string;
-  weekStart: string;
-  runs: number;
-  totalDistance: number;
-  avgPace: number | null;
-  avgPaceLabel: string | null;
-}
-
-export interface RunningPaceEntry {
-  date: string;
-  distanceKm: number;
-  pace: number | null;
-  paceLabel: string | null;
-}
-
-export interface RunningAnalytics {
-  weeklyData: RunningWeeklyData[];
-  paceTrend: RunningPaceEntry[];
-  totalRuns: number;
-  totalDistanceKm: number;
-  avgPaceMinKm: number | null;
-  avgPaceLabel: string | null;
-  consistencyScore: number;
-  insights: string[];
 }
 
 export interface AISuggestion {

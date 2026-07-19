@@ -76,7 +76,7 @@ export default function LevelUpModal({ newLevel, previousLevel, onDismiss }: Lev
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          You've reached Level {newLevel}
+          You&apos;ve reached Level {newLevel}
         </motion.p>
 
         {/* Pulsing glow ring */}

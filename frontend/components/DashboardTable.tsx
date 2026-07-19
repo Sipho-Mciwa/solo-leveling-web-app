@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { QuestHistoryRow } from '@/lib/api';
+import { HistoryRow } from '@/lib/api';
 import TableCell from './TableCell';
 
 interface DashboardTableProps {
-  quests: QuestHistoryRow[];
+  quests: HistoryRow[];
   month: string; // "YYYY-MM"
   label?: string;
 }

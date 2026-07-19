@@ -7,18 +7,20 @@ import ProgressBar from './ProgressBar';
 import { useQuests } from '@/context/QuestContext';
 import { useAuth } from '@/context/AuthContext';
 import RewardPopup from './RewardPopup';
-import StravaSyncButton from './StravaSyncButton';
 import { triggerRandomReward, RewardResult } from '@/lib/engagementService';
 
 interface QuestCardProps {
   quest: DailyQuest;
 }
 
+// Keyed by the default quests' deterministic questId (see backend
+// seedDefaultQuests), not by title — titles can be renamed/localized without
+// breaking the icon lookup. Custom quests fall back to the default icon.
 const QUEST_ICONS: Record<string, string> = {
-  'Push-ups': '💪',
-  'Sit-ups': '🔥',
-  Squats: '🦵',
-  Running: '🏃',
+  default_push_ups: '💪',
+  default_sit_ups: '🔥',
+  default_squats: '🦵',
+  default_running: '🏃',
 };
 
 function DifficultyBadge({ multiplier }: { multiplier: number }) {
@@ -45,9 +47,9 @@ export default function QuestCard({ quest }: QuestCardProps) {
   const [reward, setReward]             = useState<RewardResult | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
 
-  const icon            = QUEST_ICONS[quest.title] || '⚡';
+  const icon            = QUEST_ICONS[quest.questId] || '⚡';
   const effectiveTarget = quest.currentTarget ?? quest.targetValue;
-  const unit            = quest.title === 'Running' ? 'km' : 'reps';
+  const unit            = quest.questId === 'default_running' ? 'km' : 'reps';
 
   // Clear the float after its animation finishes (called via onAnimationComplete)
   function clearCompleted() {
@@ -187,9 +189,6 @@ export default function QuestCard({ quest }: QuestCardProps) {
           </motion.form>
         )}
       </AnimatePresence>
-
-      {/* Strava sync — Running quest only, while incomplete */}
-      {quest.title === 'Running' && !quest.completed && <StravaSyncButton />}
 
       {/* Bonus reward popup */}
       {reward && <RewardPopup reward={reward} onDismiss={() => setReward(null)} />}

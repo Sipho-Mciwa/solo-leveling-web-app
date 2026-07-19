@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { TITLE_DEFS, TITLE_CATEGORIES, CATEGORY_ORDER } = require('./titleDefinitions');
+const { AppError } = require('../utils/AppError');
 
 // ─── Data gathering ────────────────────────────────────────────────────────────
 
@@ -15,19 +16,17 @@ function nDaysAgo(n) {
 async function gatherData(userId) {
   const windowStart = nDaysAgo(179); // 180-day window for history checks
 
-  const [userSnap, activitiesSnap, challengesSnap, questsSnap, bossSnap, weekendBossSnap] = await Promise.all([
+  const [userSnap, challengesSnap, questsSnap, bossSnap, weekendBossSnap] = await Promise.all([
     db.collection('users').doc(userId).get(),
-    db.collection('processedActivities').where('userId', '==', userId).get(),
     db.collection('dailyChallenges').where('userId', '==', userId).where('date', '>=', windowStart).get(),
     db.collection('dailyQuests').where('userId', '==', userId).where('date', '>=', windowStart).get(),
     db.collection('bossQuests').where('userId', '==', userId).where('completed', '==', true).get(),
     db.collection('weekendBossChallenges').where('userId', '==', userId).where('status', '==', 'claimed').get(),
   ]);
 
-  if (!userSnap.exists) throw new Error('User not found');
+  if (!userSnap.exists) throw new AppError('User not found', 404);
 
   const user            = userSnap.data();
-  const activities      = activitiesSnap.docs.map((d) => d.data());
   const challengeDocs   = challengesSnap.docs.map((d) => d.data()).sort((a, b) => a.date.localeCompare(b.date));
   const questDocs       = questsSnap.docs.map((d) => d.data());
 
@@ -35,9 +34,10 @@ async function gatherData(userId) {
   const weekendBosses   = weekendBossSnap.docs.length;
   const completedBosses = legacyBosses + weekendBosses;
 
-  // ── Derived: running totals ────────────────────────────────────────────────
-  const totalRunCount   = activities.length;
-  const totalDistanceKm = activities.reduce((s, a) => s + (a.distance || 0) / 1000, 0);
+  // ── Derived: running totals (from completed Running quest logs) ───────────
+  const completedRuns   = questDocs.filter((dq) => dq.questId === 'default_running' && dq.completed);
+  const totalRunCount   = completedRuns.length;
+  const totalDistanceKm = completedRuns.reduce((s, dq) => s + (dq.currentValue || 0), 0);
 
   // ── Derived: challenge maps ────────────────────────────────────────────────
   // perfectDates: sorted array of dates where bonusAwarded = true (all 6 complete)

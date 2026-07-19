@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const pinoHttp = require('pino-http');
 
 const questRoutes      = require('./routes/questRoutes');
 const userRoutes       = require('./routes/userRoutes');
@@ -10,10 +12,10 @@ const penaltyRoutes    = require('./routes/penaltyRoutes');
 const bossRoutes       = require('./routes/bossRoutes');
 const challengeRoutes  = require('./routes/challengeRoutes');
 const statsRoutes      = require('./routes/statsRoutes');
-const stravaRoutes     = require('./routes/stravaRoutes');
 const aiRoutes         = require('./routes/aiRoutes');
-const { startStravaCron } = require('./cron/stravaCron');
 const { startAICron }    = require('./cron/aiCron');
+const { logger }         = require('./utils/logger');
+const { apiLimiter }     = require('./middleware/rateLimit');
 
 const app = express();
 
@@ -25,6 +27,7 @@ const ALLOWED_ORIGINS = [
 // Also allow any Vercel preview URL for this project (e.g. solo-leveling-web-app-xxxx.vercel.app)
 const VERCEL_PREVIEW_PATTERN = /^https:\/\/solo-leveling-web-app(-[a-z0-9]+)?\.vercel\.app$/;
 
+app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (e.g. curl, Postman, server-to-server)
@@ -37,6 +40,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(pinoHttp({ logger }));
+
+app.use('/api', apiLimiter);
 
 app.use('/api/quests',     questRoutes);
 app.use('/api/users',      userRoutes);
@@ -46,14 +52,12 @@ app.use('/api/penalty',    penaltyRoutes);
 app.use('/api/boss',       bossRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/stats',      statsRoutes);
-app.use('/api/strava',     stravaRoutes);
 app.use('/api/ai',         aiRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  startStravaCron();
+  logger.info(`Server running on port ${PORT}`);
   startAICron();
 });

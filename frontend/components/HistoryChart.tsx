@@ -11,7 +11,7 @@ import {
   Cell,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { QuestHistoryRow } from '@/lib/api';
+import { HistoryRow } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ interface DayPoint {
 
 // ─── Data derivation ──────────────────────────────────────────────────────────
 
-function buildData(rows: QuestHistoryRow[], month: string): DayPoint[] {
+function buildData(rows: HistoryRow[], month: string): DayPoint[] {
   const [year, monthNum] = month.split('-').map(Number);
   const daysInMonth = new Date(year, monthNum, 0).getDate();
   const now = new Date();
@@ -122,7 +122,7 @@ function CustomTooltip({ active, payload }: {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface HistoryChartProps {
-  rows: QuestHistoryRow[];
+  rows: HistoryRow[];
   month: string;       // "YYYY-MM"
   label: string;
 }

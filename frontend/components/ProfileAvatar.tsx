@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 interface ProfileAvatarProps {
   photoURL?: string | null;
   displayName?: string | null;
@@ -17,9 +19,11 @@ function getInitials(name?: string | null, email?: string | null): string {
 export default function ProfileAvatar({ photoURL, displayName, email }: ProfileAvatarProps) {
   if (photoURL) {
     return (
-      <img
+      <Image
         src={photoURL}
         alt={displayName ?? 'Profile'}
+        width={80}
+        height={80}
         className="w-20 h-20 rounded-full object-cover border-2 border-accent/30"
         referrerPolicy="no-referrer"
       />

@@ -13,7 +13,9 @@ const config: Config = {
         border: '#222222',
         accent: '#7c3aed',
         'accent-light': '#a78bfa',
-        muted: '#666666',
+        // #666 on #0a0a0a was ~3.4:1, below WCAG AA's 4.5:1 for normal text —
+        // this app uses `muted` pervasively at 9-11px. #8a8a8a is ~5.75:1.
+        muted: '#8a8a8a',
         subtle: '#333333',
       },
       fontFamily: {

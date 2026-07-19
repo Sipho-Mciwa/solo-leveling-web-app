@@ -1,9 +1,10 @@
 'use client';
 
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { QuestProvider } from '@/context/QuestContext';
+import { ChallengeProvider } from '@/context/ChallengeContext';
 import Header from '@/components/Header';
-import HunterCard from '@/components/HunterCard';
-import SystemFeed from '@/components/SystemFeed';
+import Dashboard from '@/components/Dashboard';
 import LoadingScreen from '@/components/LoadingScreen';
 
 export default function HomePage() {
@@ -14,12 +15,13 @@ export default function HomePage() {
   if (!firebaseUser) return null;
 
   return (
-    <div className="min-h-screen bg-bg">
-      <Header />
-      <main className="max-w-sm mx-auto px-6 py-10">
-        <HunterCard />
-        <SystemFeed />
-      </main>
-    </div>
+    <QuestProvider>
+      <ChallengeProvider>
+        <div className="min-h-screen bg-bg">
+          <Header />
+          <Dashboard />
+        </div>
+      </ChallengeProvider>
+    </QuestProvider>
   );
 }

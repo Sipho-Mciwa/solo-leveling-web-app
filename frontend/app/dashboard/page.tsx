@@ -1,27 +1,15 @@
 'use client';
 
-import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { QuestProvider } from '@/context/QuestContext';
-import { ChallengeProvider } from '@/context/ChallengeContext';
-import Header from '@/components/Header';
-import Dashboard from '@/components/Dashboard';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import LoadingScreen from '@/components/LoadingScreen';
 
 export default function DashboardPage() {
-  const { firebaseUser, loading } = useRequireAuth();
+  const router = useRouter();
 
-  if (loading) return <LoadingScreen />;
+  useEffect(() => {
+    router.replace('/');
+  }, [router]);
 
-  if (!firebaseUser) return null;
-
-  return (
-    <QuestProvider>
-      <ChallengeProvider>
-        <div className="min-h-screen bg-bg">
-          <Header />
-          <Dashboard />
-        </div>
-      </ChallengeProvider>
-    </QuestProvider>
-  );
+  return <LoadingScreen />;
 }

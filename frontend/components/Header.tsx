@@ -85,7 +85,7 @@ export default function Header() {
                   : 'border-transparent text-muted hover:text-white'
               }`}
             >
-              <Icon size={16} />
+              <Icon size={20} />
               {tab.label}
             </Link>
           );

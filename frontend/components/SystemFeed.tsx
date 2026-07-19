@@ -107,7 +107,7 @@ function EventRow({ event, index }: { event: SystemEvent; index: number }) {
               {event.title}
             </span>
             {event.tag && (
-              <span className={`text-[9px] font-bold tracking-widest uppercase rounded px-1.5 py-0.5 leading-none ${cfg.tagBg} ${cfg.tagText}`}>
+              <span className={`text-xs font-bold tracking-widest uppercase rounded px-1.5 py-0.5 leading-none ${cfg.tagBg} ${cfg.tagText}`}>
                 {event.tag}
               </span>
             )}
@@ -199,13 +199,13 @@ export default function SystemFeed() {
         className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <span className="text-[9px] tracking-[0.35em] uppercase text-muted font-medium">System</span>
-          <span className="text-[9px] tracking-[0.35em] uppercase text-accent-light/70 font-medium">Log</span>
+          <span className="text-xs tracking-[0.35em] uppercase text-muted font-medium">System</span>
+          <span className="text-xs tracking-[0.35em] uppercase text-accent-light/70 font-medium">Log</span>
           {unseenCount > 0 && (
             <motion.span
               initial={{ scale: 0.7 }}
               animate={{ scale: 1 }}
-              className="text-[9px] font-bold bg-accent/20 text-accent-light rounded-full px-1.5 py-0.5 leading-none"
+              className="text-xs font-bold bg-accent/20 text-accent-light rounded-full px-1.5 py-0.5 leading-none"
             >
               {unseenCount} new
             </motion.span>
@@ -253,7 +253,7 @@ export default function SystemFeed() {
             {/* Footer */}
             {!loading && events.length > 0 && (
               <div className="px-4 py-2.5 border-t border-border/40 flex items-center justify-between">
-                <span className="text-[9px] text-muted/40 uppercase tracking-widest">
+                <span className="text-xs text-muted/40 uppercase tracking-widest">
                   {events.length} active signal{events.length !== 1 ? 's' : ''}
                 </span>
                 <button

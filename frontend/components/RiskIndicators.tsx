@@ -25,7 +25,7 @@ export default function RiskIndicators({ streakCount, profile }: RiskIndicatorsP
             {streakCount}
           </p>
           <p
-            className={`text-[10px] sm:text-xs transition-colors ${
+            className={`text-xs transition-colors ${
               streakAtRisk ? 'text-warning' : 'text-muted'
             }`}
           >
@@ -35,7 +35,7 @@ export default function RiskIndicators({ streakCount, profile }: RiskIndicatorsP
       </div>
 
       {rankAtRisk && (
-        <div className="flex items-center gap-1 text-[10px] text-warning bg-warning/10 border border-warning/20 px-2 py-1 rounded-full leading-tight text-center">
+        <div className="flex items-center gap-1 text-xs text-warning bg-warning/10 border border-warning/20 px-2 py-1 rounded-full leading-tight text-center">
           <AlertTriangle size={12} />
           <span>rank<br />at risk</span>
         </div>

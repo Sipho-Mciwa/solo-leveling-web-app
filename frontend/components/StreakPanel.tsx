@@ -56,7 +56,7 @@ export default function StreakPanel({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-              className="text-[10px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 uppercase tracking-wide"
+              className="text-xs font-semibold text-warning bg-warning/10 border border-warning/20 rounded-full px-2 py-0.5 uppercase tracking-wide"
             >
               At risk
             </motion.span>
@@ -83,7 +83,7 @@ export default function StreakPanel({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 text-red-400 bg-red-400/8 border border-red-400/20 rounded-lg px-3 py-2"
+                className="flex items-center gap-2 text-danger bg-danger/8 border border-danger/20 rounded-lg px-3 py-2"
               >
                 <span className="text-xs font-semibold shrink-0">!</span>
                 <p className="text-[11px] font-medium">
@@ -99,7 +99,7 @@ export default function StreakPanel({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 text-amber-400 bg-amber-400/8 border border-amber-400/20 rounded-lg px-3 py-2"
+                className="flex items-center gap-2 text-warning bg-warning/8 border border-warning/20 rounded-lg px-3 py-2"
               >
                 <span className="text-xs shrink-0">⏱</span>
                 <p className="text-[11px] font-medium">

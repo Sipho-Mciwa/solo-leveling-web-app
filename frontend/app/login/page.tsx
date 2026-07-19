@@ -59,7 +59,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-bg">
       <div className="w-full max-w-sm rounded-3xl border border-border bg-surface overflow-hidden px-6 py-8 sm:px-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white font-display">
+          <h1 className="text-2xl font-bold tracking-tight text-white">
             {isSignUp ? 'New Hunter Registration' : 'Authenticate to Access the System'}
           </h1>
           <p className="text-muted text-sm mt-2">Level up every day.</p>

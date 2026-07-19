@@ -59,10 +59,10 @@ export default function RankProgressBar({ rank, rankProgress, variant }: RankPro
         <div className="mt-2 space-y-1">
           {rankProgress.criteria.map((c) => (
             <div key={c.label} className="flex items-center justify-between text-[10px]">
-              <span className={c.met ? 'text-green-400' : 'text-muted'}>
+              <span className={c.met ? 'text-success' : 'text-muted'}>
                 {c.met ? '✓' : '·'} {c.label}
               </span>
-              <span className={`tabular-nums ${c.met ? 'text-green-400' : 'text-muted'}`}>
+              <span className={`tabular-nums ${c.met ? 'text-success' : 'text-muted'}`}>
                 {c.current}/{c.target}
               </span>
             </div>

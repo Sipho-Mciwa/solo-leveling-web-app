@@ -27,10 +27,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const TIER_COLORS: Record<string | number, string> = {
   1:    'text-gray-400 border-gray-600',
-  2:    'text-blue-400 border-blue-500/40',
+  2:    'text-info border-info/40',
   3:    'text-purple-400 border-purple-500/40',
-  4:    'text-yellow-400 border-yellow-500/40',
-  rare: 'text-red-400 border-red-500/40',
+  4:    'text-warning border-warning/40',
+  rare: 'text-danger border-danger/40',
 };
 
 const TIER_LABELS: Record<string | number, string> = {
@@ -70,14 +70,14 @@ function TitleCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold border rounded px-1 py-0.5 flex items-center ${tierClass}`}>
-              {title.tier === 'rare' ? <Star size={9} className="fill-current" /> : tierLabel}
+            <span className={`text-xs font-bold border rounded px-1 py-0.5 flex items-center ${tierClass}`}>
+              {title.tier === 'rare' ? <Star size={12} className="fill-current" /> : tierLabel}
             </span>
             <p className={`text-sm font-semibold truncate ${title.unlocked ? 'text-white' : 'text-muted'}`}>
               {title.name}
             </p>
             {title.active && (
-              <span className="text-[10px] font-semibold text-accent-light bg-accent/15 rounded-full px-2 py-0.5 shrink-0">
+              <span className="text-xs font-semibold text-accent-light bg-accent/15 rounded-full px-2 py-0.5 shrink-0">
                 Equipped
               </span>
             )}
@@ -99,7 +99,7 @@ function TitleCard({
       {/* Progress bar for locked titles */}
       {!title.unlocked && title.progress && (
         <div className="mt-3">
-          <div className="flex justify-between text-[10px] text-muted mb-1">
+          <div className="flex justify-between text-xs text-muted mb-1">
             <span>Progress</span>
             <span className="tabular-nums">{title.progress.current} / {title.progress.target}</span>
           </div>
@@ -181,11 +181,11 @@ export default function TitlesPage() {
         </motion.div>
 
         {error && (
-          <p className="text-sm text-red-400 text-center py-8">{error}</p>
+          <p className="text-sm text-danger text-center py-8">{error}</p>
         )}
 
         {equipError && (
-          <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl p-3 mb-4">
+          <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-xl p-3 mb-4">
             {equipError}
           </p>
         )}

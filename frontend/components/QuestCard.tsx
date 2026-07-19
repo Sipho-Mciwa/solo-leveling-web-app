@@ -31,8 +31,8 @@ function DifficultyBadge({ multiplier }: { multiplier: number }) {
   const pct = Math.abs(Math.round(delta * 100));
   return (
     <span
-      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-        harder ? 'text-amber-400 bg-amber-400/10' : 'text-sky-400 bg-sky-400/10'
+      className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+        harder ? 'text-warning bg-warning/10' : 'text-info bg-info/10'
       }`}
     >
       {harder ? '↑' : '↓'} {pct}%

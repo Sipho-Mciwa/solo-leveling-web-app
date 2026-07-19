@@ -153,12 +153,12 @@ export default function HunterCard() {
               initial={{ opacity: 0, scale: 0.85, y: 4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 20 }}
-              className="mt-3 inline-flex items-center gap-1.5 bg-green-400/10 border border-green-400/20 rounded-full px-3 py-0.5"
+              className="mt-3 inline-flex items-center gap-1.5 bg-success/10 border border-success/20 rounded-full px-3 py-0.5"
             >
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-green-400">
+              <span className="text-xs font-semibold uppercase tracking-widest text-success">
                 Achievement
               </span>
-              <span className="text-[10px] text-green-300">{resolveAchievementName(recentTitle ?? '')}</span>
+              <span className="text-xs text-success">{resolveAchievementName(recentTitle ?? '')}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -166,7 +166,7 @@ export default function HunterCard() {
         <h1 className="text-lg font-bold text-white leading-tight mt-3">{name}</h1>
 
         {loadError && (
-          <p className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 mt-2">
+          <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-full px-3 py-1 mt-2">
             {loadError}
           </p>
         )}
@@ -207,7 +207,7 @@ export default function HunterCard() {
               }}
             />
           </div>
-          <p className="text-[10px] text-muted mt-1 text-right">
+          <p className="text-xs text-muted mt-1 text-right">
             {Math.round(100 - xpPct)}% to Level {level + 1}
           </p>
         </div>
@@ -264,11 +264,11 @@ export default function HunterCard() {
           return (
             <>
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-[10px] text-muted uppercase tracking-widest">
+                <p className="text-xs text-muted uppercase tracking-widest">
                   {aiInsight ? 'AI Coach' : 'Insight'}
                 </p>
                 {aiInsight && (
-                  <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
                     AI
                   </span>
                 )}

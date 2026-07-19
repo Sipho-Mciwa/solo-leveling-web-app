@@ -409,7 +409,7 @@ const CountdownTimer = memo(function CountdownTimer({
                 initial={{ opacity: 0.6, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.15 }}
-                className={`text-2xl font-bold tabular-nums leading-none ${
+                className={`text-2xl font-bold tabular-nums leading-none font-display ${
                   isUrgent ? 'text-red-400' : 'text-white'
                 }`}
               >

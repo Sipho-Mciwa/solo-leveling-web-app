@@ -13,7 +13,7 @@ function Card({ label, value, suffix, sub }: { label: string; value: number; suf
   return (
     <div className="bg-surface border border-border rounded-2xl px-5 py-4">
       <p className="text-xs text-muted uppercase tracking-wide mb-2">{label}</p>
-      <p className="text-3xl font-bold text-white leading-none">
+      <p className="text-3xl font-bold text-white leading-none font-display">
         <CountUp end={value} duration={1.2} useEasing suffix={suffix} />
       </p>
       {sub && <p className="text-xs text-muted mt-1.5">{sub}</p>}

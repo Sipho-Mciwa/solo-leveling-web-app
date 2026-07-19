@@ -25,7 +25,7 @@ const SIZE_CLASSES = {
 export default function RankBadge({ rank, size = 'md' }: RankBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded border font-semibold tracking-wider ${RANK_STYLES[rank]} ${SIZE_CLASSES[size]}`}
+      className={`inline-flex items-center justify-center rounded border font-display font-semibold tracking-wider ${RANK_STYLES[rank]} ${SIZE_CLASSES[size]}`}
     >
       {rank}
     </span>

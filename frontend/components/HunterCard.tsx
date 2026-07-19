@@ -189,9 +189,9 @@ export default function HunterCard() {
           <div className="flex justify-between text-[11px] text-muted mb-1.5">
             <span>
               Level{' '}
-              <CountUp end={level} duration={0.8} className="text-white font-semibold" />
+              <CountUp end={level} duration={0.8} className="text-white font-semibold font-display" />
             </span>
-            <span className="tabular-nums">
+            <span className="tabular-nums font-display">
               <CountUp end={xp} duration={1.4} separator="," /> / {xpNeeded.toLocaleString()} XP
             </span>
           </div>

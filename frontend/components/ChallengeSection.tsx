@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
 import { DailyChallenge, AISuggestion, fetchAIChallenges } from '@/lib/api';
@@ -68,12 +69,12 @@ export default function ChallengeSection() {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-yellow-400 text-sm font-semibold">{earnedXp} XP</p>
+          <p className="text-warning text-sm font-semibold">{earnedXp} XP</p>
           {allComplete && bonusAwarded && (
-            <p className="text-yellow-400/70 text-[10px] mt-0.5">+100 bonus earned</p>
+            <p className="text-warning/70 text-xs mt-0.5">+100 bonus earned</p>
           )}
           {allComplete && !bonusAwarded && (
-            <p className="text-yellow-400/70 text-[10px] mt-0.5">+100 bonus pending</p>
+            <p className="text-warning/70 text-xs mt-0.5">+100 bonus pending</p>
           )}
         </div>
       </div>
@@ -99,7 +100,7 @@ export default function ChallengeSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="mt-3 text-center text-xs text-yellow-400/80"
+            className="mt-3 text-center text-xs text-warning/80"
           >
             All challenges complete — discipline maintained.
           </motion.p>
@@ -117,8 +118,8 @@ export default function ChallengeSection() {
             className="mt-5"
           >
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-[10px] text-muted uppercase tracking-widest">Coach Suggests</p>
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+              <p className="text-xs text-muted uppercase tracking-widest">Coach Suggests</p>
+              <span className="text-xs font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
                 AI
               </span>
             </div>
@@ -129,7 +130,7 @@ export default function ChallengeSection() {
                   className="flex items-start gap-3 px-4 py-3 rounded-xl border border-accent/20 bg-accent/5"
                 >
                   <div className="w-5 h-5 rounded-full border-2 border-accent/40 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[9px] text-accent-light/60">✦</span>
+                    <Sparkles size={14} className="text-accent-light/60" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{s.title}</p>
@@ -170,13 +171,13 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left min-h-[48px] ${
         challenge.completed
           ? 'bg-surface/30 border-border/30 cursor-default'
-          : 'bg-surface border-border hover:border-yellow-400/40 hover:bg-surface/80 cursor-pointer'
+          : 'bg-surface border-border hover:border-warning/40 hover:bg-surface/80 cursor-pointer'
       }`}
     >
       {/* Checkbox circle — bounces on completion */}
       <motion.div
         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-          challenge.completed ? 'border-yellow-400 bg-yellow-400' : 'border-border'
+          challenge.completed ? 'border-warning bg-warning' : 'border-border'
         }`}
         animate={challenge.completed ? { scale: [1, 1.3, 1] } : { scale: 1 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -215,7 +216,7 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
       {/* XP badge */}
       <span
         className={`text-xs font-medium transition-colors ${
-          challenge.completed ? 'text-muted' : 'text-yellow-400'
+          challenge.completed ? 'text-muted' : 'text-warning'
         }`}
       >
         +{challenge.xpReward} XP

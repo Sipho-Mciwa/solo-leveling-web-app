@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
+import { Rajdhani } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
+
+const rajdhani = Rajdhani({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-display',
+});
 
 export const metadata: Metadata = {
   title: 'Solo Leveling',
@@ -17,7 +24,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={rajdhani.variable}>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>

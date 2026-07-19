@@ -17,9 +17,25 @@ const config: Config = {
         // this app uses `muted` pervasively at 9-11px. #8a8a8a is ~5.75:1.
         muted: '#8a8a8a',
         subtle: '#333333',
+
+        system: '#38bdf8',
+        'system-light': '#7dd3fc',
+        danger: '#f87171',
+        'danger-light': '#fca5a5',
+        warning: '#fbbf24',
+        success: '#34d399',
+        info: '#60a5fa',
+
+        'rank-e': '#9ca3af',
+        'rank-d': '#4ade80',
+        'rank-c': '#60a5fa',
+        'rank-b': '#c084fc',
+        'rank-a': '#facc15',
+        'rank-s': '#f87171',
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        display: ['var(--font-display)', 'sans-serif'],
       },
     },
   },

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Diamond, AlertTriangle, Star, Skull, Sparkles, Zap } from 'lucide-react';
 import { fetchSystemEvents, markSystemEventsSeen, SystemEvent, SystemEventType } from '@/lib/api';
 import { eventTypeToTone, TONE_STYLES, GLOW_DURATION, SHAKE_X } from '@/utils/systemStyles';
 
@@ -14,11 +14,11 @@ const TYPE_CONFIG: Record<SystemEventType, {
   tagText: string;
   dot: string;
 }> = {
-  system:    { border: 'border-accent/50',   tagBg: 'bg-accent/15',       tagText: 'text-accent-light',  dot: 'bg-accent' },
-  warning:   { border: 'border-amber-400/60', tagBg: 'bg-amber-400/10',    tagText: 'text-amber-400',     dot: 'bg-amber-400' },
-  alert:     { border: 'border-red-400/60',   tagBg: 'bg-red-400/10',      tagText: 'text-red-400',       dot: 'bg-red-400' },
-  narrative: { border: 'border-sky-400/50',   tagBg: 'bg-sky-400/10',      tagText: 'text-sky-400',       dot: 'bg-sky-400' },
-  special:   { border: 'border-yellow-400/60',tagBg: 'bg-yellow-400/10',   tagText: 'text-yellow-300',    dot: 'bg-yellow-400' },
+  system:    { border: 'border-accent/50',  tagBg: 'bg-accent/15',  tagText: 'text-accent-light', dot: 'bg-accent' },
+  warning:   { border: 'border-warning/60', tagBg: 'bg-warning/10', tagText: 'text-warning',       dot: 'bg-warning' },
+  alert:     { border: 'border-danger/60',  tagBg: 'bg-danger/10',  tagText: 'text-danger',        dot: 'bg-danger' },
+  narrative: { border: 'border-system/50',  tagBg: 'bg-system/10',  tagText: 'text-system',        dot: 'bg-system' },
+  special:   { border: 'border-warning/60', tagBg: 'bg-warning/10', tagText: 'text-warning',       dot: 'bg-warning' },
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -26,26 +26,24 @@ const TYPE_CONFIG: Record<SystemEventType, {
 function EventIcon({ icon, type }: { icon: SystemEvent['icon']; type: SystemEventType }) {
   const color = {
     system:    'text-accent-light',
-    warning:   'text-amber-400',
-    alert:     'text-red-400',
-    narrative: 'text-sky-400',
-    special:   'text-yellow-300',
+    warning:   'text-warning',
+    alert:     'text-danger',
+    narrative: 'text-system',
+    special:   'text-warning',
   }[type];
 
-  const glyphs: Record<SystemEvent['icon'], string> = {
-    system:  '◆',
-    warning: '⚠',
-    trophy:  '★',
-    boss:    '☠',
-    star:    '✦',
-    xp:      '⚡',
+  const Icons: Record<SystemEvent['icon'], typeof Diamond> = {
+    system:  Diamond,
+    warning: AlertTriangle,
+    trophy:  Star,
+    boss:    Skull,
+    star:    Sparkles,
+    xp:      Zap,
   };
 
-  return (
-    <span className={`text-sm leading-none shrink-0 ${color}`} aria-hidden>
-      {glyphs[icon] ?? '◆'}
-    </span>
-  );
+  const Icon = Icons[icon] ?? Diamond;
+
+  return <Icon size={14} className={`shrink-0 ${color}`} aria-hidden />;
 }
 
 // ─── Relative timestamp ───────────────────────────────────────────────────────

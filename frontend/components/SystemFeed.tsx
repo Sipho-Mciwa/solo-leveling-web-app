@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import { fetchSystemEvents, markSystemEventsSeen, SystemEvent, SystemEventType } from '@/lib/api';
 import { eventTypeToTone, TONE_STYLES, GLOW_DURATION, SHAKE_X } from '@/utils/systemStyles';
 
@@ -219,14 +220,12 @@ export default function SystemFeed() {
               {relativeTime(lastFetch.toISOString())}
             </span>
           )}
-          <motion.svg
-            className="w-3.5 h-3.5 text-muted/50"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          <motion.div
             animate={{ rotate: expanded ? 0 : -90 }}
             transition={{ duration: 0.2 }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </motion.svg>
+            <ChevronDown size={16} className="text-muted/50" />
+          </motion.div>
         </div>
       </button>
 

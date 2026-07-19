@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LayoutDashboard, User, History, BarChart3, Trophy } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { xpRequiredForLevel } from '@/lib/xpUtils';
 import { resolveAchievementName } from '@/utils/achievementMap';
@@ -10,11 +11,11 @@ import RankBadge from './RankBadge';
 import RiskIndicators from './RiskIndicators';
 
 const NAV_TABS = [
-  { label: 'Dashboard', href: '/'          },
-  { label: 'Profile',   href: '/profile'   },
-  { label: 'History',   href: '/history'   },
-  { label: 'Analytics', href: '/analytics' },
-  { label: 'Titles',    href: '/titles'    },
+  { label: 'Dashboard', href: '/',          icon: LayoutDashboard },
+  { label: 'Profile',   href: '/profile',   icon: User },
+  { label: 'History',   href: '/history',   icon: History },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Titles',    href: '/titles',    icon: Trophy },
 ];
 
 export default function Header() {
@@ -72,19 +73,23 @@ export default function Header() {
 
       {/* Nav tabs */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 flex gap-1">
-        {NAV_TABS.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              pathname === tab.href
-                ? 'border-accent text-white'
-                : 'border-transparent text-muted hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+        {NAV_TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                pathname === tab.href
+                  ? 'border-accent text-white'
+                  : 'border-transparent text-muted hover:text-white'
+              }`}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </Link>
+          );
+        })}
       </div>
     </header>
   );

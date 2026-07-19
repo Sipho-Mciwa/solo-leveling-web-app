@@ -26,6 +26,7 @@ import RankBadge from './RankBadge';
 import StatsRadarChart from './StatsRadarChart';
 import RankProgressBar from './RankProgressBar';
 import StreakPanel from './StreakPanel';
+import NextObjectiveCard from './NextObjectiveCard';
 import { resolveAchievementName } from '@/utils/achievementMap';
 import { generateLocalInsight } from '@/utils/systemVoice';
 import SystemMessage from './SystemMessage';
@@ -112,9 +113,7 @@ export default function HunterCard() {
   const challengesTotal = challenges?.challenges.length ?? 0;
 
   // ── Next objective ────────────────────────────────────────────────────────
-  const nextQuest     = quests.find((q) => !q.completed) ?? null;
-  const nextTarget    = nextQuest ? (nextQuest.currentTarget ?? nextQuest.targetValue) : 0;
-  const nextRemaining = nextQuest ? Math.max(0, nextTarget - nextQuest.currentValue) : 0;
+  const nextQuest = quests.find((q) => !q.completed) ?? null;
 
   // ── Streak & pressure ────────────────────────────────────────────────────
   const streakAtRisk = streakCount > 0 && questsReady && questsTotal > 0 && questsDone === 0;
@@ -217,65 +216,11 @@ export default function HunterCard() {
         <RankProgressBar rank={rank ?? 'E'} rankProgress={rankProgress} variant="full" />
       </motion.div>
 
-      {/* ── 3. Daily snapshot ────────────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0.14)}
-        className="grid grid-cols-2 border-t border-border divide-x divide-border"
-      >
-        <div className="px-4 py-3 text-center">
-          <p className="text-base font-bold text-white tabular-nums leading-none">
-            {questsReady ? `${questsDone}/${questsTotal}` : '—'}
-          </p>
-          <p className="text-[10px] text-muted mt-1 uppercase tracking-wide">Quests</p>
+      {questsReady && nextQuest && (
+        <div className="px-4 sm:px-6 py-4 border-t border-border">
+          <NextObjectiveCard quest={nextQuest} ready={questsReady} />
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-base font-bold text-white tabular-nums leading-none">
-            {challenges ? `${challengesDone}/${challengesTotal}` : '—'}
-          </p>
-          <p className="text-[10px] text-muted mt-1 uppercase tracking-wide">Challenges</p>
-        </div>
-      </motion.div>
-
-      {/* ── 4. Next objective ────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {questsReady && nextQuest && (
-          <motion.div
-            key="next-obj"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="px-4 sm:px-6 py-4 border-t border-border"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted uppercase tracking-widest mb-1">
-                  Next objective
-                </p>
-                <p className="text-sm font-semibold text-white truncate">{nextQuest.title}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[10px] text-muted mb-1">&nbsp;</p>
-                <p className="text-xs text-accent-light tabular-nums">
-                  {nextQuest.currentValue} / {nextTarget}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 h-1 rounded-full bg-subtle overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-accent/60"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, (nextQuest.currentValue / nextTarget) * 100)}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-              />
-            </div>
-            <p className="text-[10px] text-muted mt-1">
-              {nextRemaining}{' '}
-              {nextQuest.title.toLowerCase().includes('run') ? 'km' : 'reps'} remaining
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      )}
 
       {/* ── 5. Streak + pressure ─────────────────────────────────────────────── */}
       <motion.div

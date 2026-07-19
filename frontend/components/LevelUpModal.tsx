@@ -66,7 +66,7 @@ export default function LevelUpModal({ newLevel, previousLevel, onDismiss }: Lev
             end={newLevel}
             duration={0.7}
             delay={0.25}
-            className="text-8xl font-black text-white tabular-nums leading-none"
+            className="text-8xl font-black text-white tabular-nums leading-none font-display"
           />
         </motion.div>
 

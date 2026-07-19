@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, Diamond, AlertTriangle, Star, Skull, Sparkles, Zap } from 'lucide-react';
 import { fetchSystemEvents, markSystemEventsSeen, SystemEvent, SystemEventType } from '@/lib/api';
 import { eventTypeToTone, TONE_STYLES, GLOW_DURATION, SHAKE_X } from '@/utils/systemStyles';
 
@@ -13,11 +14,11 @@ const TYPE_CONFIG: Record<SystemEventType, {
   tagText: string;
   dot: string;
 }> = {
-  system:    { border: 'border-accent/50',   tagBg: 'bg-accent/15',       tagText: 'text-accent-light',  dot: 'bg-accent' },
-  warning:   { border: 'border-amber-400/60', tagBg: 'bg-amber-400/10',    tagText: 'text-amber-400',     dot: 'bg-amber-400' },
-  alert:     { border: 'border-red-400/60',   tagBg: 'bg-red-400/10',      tagText: 'text-red-400',       dot: 'bg-red-400' },
-  narrative: { border: 'border-sky-400/50',   tagBg: 'bg-sky-400/10',      tagText: 'text-sky-400',       dot: 'bg-sky-400' },
-  special:   { border: 'border-yellow-400/60',tagBg: 'bg-yellow-400/10',   tagText: 'text-yellow-300',    dot: 'bg-yellow-400' },
+  system:    { border: 'border-accent/50',  tagBg: 'bg-accent/15',  tagText: 'text-accent-light', dot: 'bg-accent' },
+  warning:   { border: 'border-warning/60', tagBg: 'bg-warning/10', tagText: 'text-warning',       dot: 'bg-warning' },
+  alert:     { border: 'border-danger/60',  tagBg: 'bg-danger/10',  tagText: 'text-danger',        dot: 'bg-danger' },
+  narrative: { border: 'border-system/50',  tagBg: 'bg-system/10',  tagText: 'text-system',        dot: 'bg-system' },
+  special:   { border: 'border-warning/60', tagBg: 'bg-warning/10', tagText: 'text-warning',       dot: 'bg-warning' },
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -25,26 +26,24 @@ const TYPE_CONFIG: Record<SystemEventType, {
 function EventIcon({ icon, type }: { icon: SystemEvent['icon']; type: SystemEventType }) {
   const color = {
     system:    'text-accent-light',
-    warning:   'text-amber-400',
-    alert:     'text-red-400',
-    narrative: 'text-sky-400',
-    special:   'text-yellow-300',
+    warning:   'text-warning',
+    alert:     'text-danger',
+    narrative: 'text-system',
+    special:   'text-warning',
   }[type];
 
-  const glyphs: Record<SystemEvent['icon'], string> = {
-    system:  '◆',
-    warning: '⚠',
-    trophy:  '★',
-    boss:    '☠',
-    star:    '✦',
-    xp:      '⚡',
+  const Icons: Record<SystemEvent['icon'], typeof Diamond> = {
+    system:  Diamond,
+    warning: AlertTriangle,
+    trophy:  Star,
+    boss:    Skull,
+    star:    Sparkles,
+    xp:      Zap,
   };
 
-  return (
-    <span className={`text-sm leading-none shrink-0 ${color}`} aria-hidden>
-      {glyphs[icon] ?? '◆'}
-    </span>
-  );
+  const Icon = Icons[icon] ?? Diamond;
+
+  return <Icon size={14} className={`shrink-0 ${color}`} aria-hidden />;
 }
 
 // ─── Relative timestamp ───────────────────────────────────────────────────────
@@ -108,7 +107,7 @@ function EventRow({ event, index }: { event: SystemEvent; index: number }) {
               {event.title}
             </span>
             {event.tag && (
-              <span className={`text-[9px] font-bold tracking-widest uppercase rounded px-1.5 py-0.5 leading-none ${cfg.tagBg} ${cfg.tagText}`}>
+              <span className={`text-xs font-bold tracking-widest uppercase rounded px-1.5 py-0.5 leading-none ${cfg.tagBg} ${cfg.tagText}`}>
                 {event.tag}
               </span>
             )}
@@ -200,13 +199,13 @@ export default function SystemFeed() {
         className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <span className="text-[9px] tracking-[0.35em] uppercase text-muted font-medium">System</span>
-          <span className="text-[9px] tracking-[0.35em] uppercase text-accent-light/70 font-medium">Log</span>
+          <span className="text-xs tracking-[0.35em] uppercase text-muted font-medium">System</span>
+          <span className="text-xs tracking-[0.35em] uppercase text-accent-light/70 font-medium">Log</span>
           {unseenCount > 0 && (
             <motion.span
               initial={{ scale: 0.7 }}
               animate={{ scale: 1 }}
-              className="text-[9px] font-bold bg-accent/20 text-accent-light rounded-full px-1.5 py-0.5 leading-none"
+              className="text-xs font-bold bg-accent/20 text-accent-light rounded-full px-1.5 py-0.5 leading-none"
             >
               {unseenCount} new
             </motion.span>
@@ -219,14 +218,12 @@ export default function SystemFeed() {
               {relativeTime(lastFetch.toISOString())}
             </span>
           )}
-          <motion.svg
-            className="w-3.5 h-3.5 text-muted/50"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          <motion.div
             animate={{ rotate: expanded ? 0 : -90 }}
             transition={{ duration: 0.2 }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </motion.svg>
+            <ChevronDown size={16} className="text-muted/50" />
+          </motion.div>
         </div>
       </button>
 
@@ -256,7 +253,7 @@ export default function SystemFeed() {
             {/* Footer */}
             {!loading && events.length > 0 && (
               <div className="px-4 py-2.5 border-t border-border/40 flex items-center justify-between">
-                <span className="text-[9px] text-muted/40 uppercase tracking-widest">
+                <span className="text-xs text-muted/40 uppercase tracking-widest">
                   {events.length} active signal{events.length !== 1 ? 's' : ''}
                 </span>
                 <button

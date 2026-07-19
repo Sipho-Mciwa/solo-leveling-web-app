@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Dumbbell, Flame, Footprints, Zap } from 'lucide-react';
 import { DailyQuest } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 import { useQuests } from '@/context/QuestContext';
@@ -16,11 +17,11 @@ interface QuestCardProps {
 // Keyed by the default quests' deterministic questId (see backend
 // seedDefaultQuests), not by title — titles can be renamed/localized without
 // breaking the icon lookup. Custom quests fall back to the default icon.
-const QUEST_ICONS: Record<string, string> = {
-  default_push_ups: '💪',
-  default_sit_ups: '🔥',
-  default_squats: '🦵',
-  default_running: '🏃',
+const QUEST_ICONS: Record<string, typeof Dumbbell> = {
+  default_push_ups: Dumbbell,
+  default_sit_ups: Flame,
+  default_squats: Footprints,
+  default_running: Footprints,
 };
 
 function DifficultyBadge({ multiplier }: { multiplier: number }) {
@@ -30,8 +31,8 @@ function DifficultyBadge({ multiplier }: { multiplier: number }) {
   const pct = Math.abs(Math.round(delta * 100));
   return (
     <span
-      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-        harder ? 'text-amber-400 bg-amber-400/10' : 'text-sky-400 bg-sky-400/10'
+      className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+        harder ? 'text-warning bg-warning/10' : 'text-info bg-info/10'
       }`}
     >
       {harder ? '↑' : '↓'} {pct}%
@@ -47,7 +48,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
   const [reward, setReward]             = useState<RewardResult | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
 
-  const icon            = QUEST_ICONS[quest.questId] || '⚡';
+  const Icon            = QUEST_ICONS[quest.questId] ?? Zap;
   const effectiveTarget = quest.currentTarget ?? quest.targetValue;
   const unit            = quest.questId === 'default_running' ? 'km' : 'reps';
 
@@ -112,7 +113,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
       {/* Top row */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{icon}</span>
+          <Icon size={24} className="text-accent-light" />
           <div>
             <h3 className="font-semibold text-white text-sm">{quest.title}</h3>
             <div className="flex items-center gap-1.5 mt-0.5">

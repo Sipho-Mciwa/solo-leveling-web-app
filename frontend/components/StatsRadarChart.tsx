@@ -161,7 +161,7 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
                 {STAT_LABELS[key]}
               </span>
               <span
-                className={`text-sm font-bold tabular-nums leading-none ${
+                className={`text-sm font-bold tabular-nums leading-none font-display ${
                   isWeak ? 'text-amber-400' : 'text-white'
                 }`}
               >

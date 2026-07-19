@@ -24,6 +24,9 @@ import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProfileAvatar from './ProfileAvatar';
 import RankBadge from './RankBadge';
 import StatsRadarChart from './StatsRadarChart';
+import RankProgressBar from './RankProgressBar';
+import StreakPanel from './StreakPanel';
+import NextObjectiveCard from './NextObjectiveCard';
 import { resolveAchievementName } from '@/utils/achievementMap';
 import { generateLocalInsight } from '@/utils/systemVoice';
 import SystemMessage from './SystemMessage';
@@ -32,15 +35,6 @@ import { classifyInsightTone, TONE_STYLES } from '@/utils/systemStyles';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
-
-const RANK_STYLES: Record<Rank, string> = {
-  E: 'text-gray-400',
-  D: 'text-green-400',
-  C: 'text-blue-400',
-  B: 'text-purple-400',
-  A: 'text-yellow-400',
-  S: 'text-red-400',
-};
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -112,12 +106,6 @@ export default function HunterCard() {
   const xpNeeded     = xpRequiredForLevel(level);
   const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
 
-  // ── Rank progress ─────────────────────────────────────────────────────────
-  const rankMetCount   = rankProgress?.metCount   ?? 0;
-  const rankTotalCount = rankProgress?.totalCount ?? 0;
-  const rankNextRank   = rankProgress?.nextRank   ?? null;
-  const rankPct        = rankTotalCount > 0 ? (rankMetCount / rankTotalCount) * 100 : 100;
-
   // ── Daily snapshot ────────────────────────────────────────────────────────
   const questsDone      = quests.filter((q) => q.completed).length;
   const questsTotal     = quests.length;
@@ -125,9 +113,7 @@ export default function HunterCard() {
   const challengesTotal = challenges?.challenges.length ?? 0;
 
   // ── Next objective ────────────────────────────────────────────────────────
-  const nextQuest     = quests.find((q) => !q.completed) ?? null;
-  const nextTarget    = nextQuest ? (nextQuest.currentTarget ?? nextQuest.targetValue) : 0;
-  const nextRemaining = nextQuest ? Math.max(0, nextTarget - nextQuest.currentValue) : 0;
+  const nextQuest = quests.find((q) => !q.completed) ?? null;
 
   // ── Streak & pressure ────────────────────────────────────────────────────
   const streakAtRisk = streakCount > 0 && questsReady && questsTotal > 0 && questsDone === 0;
@@ -167,12 +153,12 @@ export default function HunterCard() {
               initial={{ opacity: 0, scale: 0.85, y: 4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 20 }}
-              className="mt-3 inline-flex items-center gap-1.5 bg-green-400/10 border border-green-400/20 rounded-full px-3 py-0.5"
+              className="mt-3 inline-flex items-center gap-1.5 bg-success/10 border border-success/20 rounded-full px-3 py-0.5"
             >
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-green-400">
+              <span className="text-xs font-semibold uppercase tracking-widest text-success">
                 Achievement
               </span>
-              <span className="text-[10px] text-green-300">{resolveAchievementName(recentTitle ?? '')}</span>
+              <span className="text-xs text-success">{resolveAchievementName(recentTitle ?? '')}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -180,7 +166,7 @@ export default function HunterCard() {
         <h1 className="text-lg font-bold text-white leading-tight mt-3">{name}</h1>
 
         {loadError && (
-          <p className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 mt-2">
+          <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-full px-3 py-1 mt-2">
             {loadError}
           </p>
         )}
@@ -203,9 +189,9 @@ export default function HunterCard() {
           <div className="flex justify-between text-[11px] text-muted mb-1.5">
             <span>
               Level{' '}
-              <CountUp end={level} duration={0.8} className="text-white font-semibold" />
+              <CountUp end={level} duration={0.8} className="text-white font-semibold font-display" />
             </span>
-            <span className="tabular-nums">
+            <span className="tabular-nums font-display">
               <CountUp end={xp} duration={1.4} separator="," /> / {xpNeeded.toLocaleString()} XP
             </span>
           </div>
@@ -221,210 +207,36 @@ export default function HunterCard() {
               }}
             />
           </div>
-          <p className="text-[10px] text-muted mt-1 text-right">
+          <p className="text-xs text-muted mt-1 text-right">
             {Math.round(100 - xpPct)}% to Level {level + 1}
           </p>
         </div>
 
         {/* Rank progress — criteria-based */}
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-bold ${RANK_STYLES[rank ?? 'E']}`}>{rank}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-subtle overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${rankPct}%` }}
-                transition={{ duration: 0.9, ease: 'easeOut', delay: 0.15 }}
-                style={{
-                  background:
-                    rankNextRank == null
-                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                      : 'linear-gradient(90deg, #7c3aed, #a78bfa)',
-                }}
-              />
-            </div>
-            {rankNextRank && (
-              <span className={`text-[11px] font-bold ${RANK_STYLES[rankNextRank]}`}>
-                {rankNextRank}
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-muted mt-1 text-right">
-            {rankNextRank == null
-              ? 'Max rank achieved'
-              : rankProgress
-              ? `${rankMetCount}/${rankTotalCount} conditions met for ${rankNextRank}-Rank`
-              : `Working towards ${rankNextRank}-Rank`}
-          </p>
-          {/* Criteria breakdown */}
-          {rankProgress && rankNextRank && rankProgress.criteria.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {rankProgress.criteria.map((c) => (
-                <div key={c.label} className="flex items-center justify-between text-[10px]">
-                  <span className={c.met ? 'text-green-400' : 'text-muted'}>
-                    {c.met ? '✓' : '·'} {c.label}
-                  </span>
-                  <span className={`tabular-nums ${c.met ? 'text-green-400' : 'text-muted'}`}>
-                    {c.current}/{c.target}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <RankProgressBar rank={rank ?? 'E'} rankProgress={rankProgress} variant="full" />
       </motion.div>
 
-      {/* ── 3. Daily snapshot ────────────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0.14)}
-        className="grid grid-cols-2 border-t border-border divide-x divide-border"
-      >
-        <div className="px-4 py-3 text-center">
-          <p className="text-base font-bold text-white tabular-nums leading-none">
-            {questsReady ? `${questsDone}/${questsTotal}` : '—'}
-          </p>
-          <p className="text-[10px] text-muted mt-1 uppercase tracking-wide">Quests</p>
+      {questsReady && nextQuest && (
+        <div className="px-4 sm:px-6 py-4 border-t border-border">
+          <NextObjectiveCard quest={nextQuest} ready={questsReady} />
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-base font-bold text-white tabular-nums leading-none">
-            {challenges ? `${challengesDone}/${challengesTotal}` : '—'}
-          </p>
-          <p className="text-[10px] text-muted mt-1 uppercase tracking-wide">Challenges</p>
-        </div>
-      </motion.div>
-
-      {/* ── 4. Next objective ────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {questsReady && nextQuest && (
-          <motion.div
-            key="next-obj"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="px-4 sm:px-6 py-4 border-t border-border"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted uppercase tracking-widest mb-1">
-                  Next objective
-                </p>
-                <p className="text-sm font-semibold text-white truncate">{nextQuest.title}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[10px] text-muted mb-1">&nbsp;</p>
-                <p className="text-xs text-accent-light tabular-nums">
-                  {nextQuest.currentValue} / {nextTarget}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 h-1 rounded-full bg-subtle overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-accent/60"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, (nextQuest.currentValue / nextTarget) * 100)}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-              />
-            </div>
-            <p className="text-[10px] text-muted mt-1">
-              {nextRemaining}{' '}
-              {nextQuest.title.toLowerCase().includes('run') ? 'km' : 'reps'} remaining
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      )}
 
       {/* ── 5. Streak + pressure ─────────────────────────────────────────────── */}
       <motion.div
         {...sectionVariant(0.21)}
-        className="px-4 sm:px-6 py-4 border-t border-border space-y-2"
+        className="px-4 sm:px-6 py-4 border-t border-border"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Pulse the count if streak is at risk (red) or on fire (purple) */}
-            <motion.span
-              className="text-sm font-bold text-white tabular-nums"
-              animate={
-                streakAtRisk
-                  ? { opacity: [1, 0.45, 1] }
-                  : streakCount >= 7
-                  ? { scale: [1, 1.08, 1] }
-                  : {}
-              }
-              transition={
-                streakAtRisk || streakCount >= 7
-                  ? { repeat: Infinity, duration: streakAtRisk ? 1.1 : 2.2 }
-                  : {}
-              }
-            >
-              <CountUp end={streakCount} duration={1.1} />
-            </motion.span>
-            <span className="text-xs text-muted">day streak</span>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {streakAtRisk ? (
-              <motion.span
-                key="risk"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-                className="text-[10px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 uppercase tracking-wide"
-              >
-                At risk
-              </motion.span>
-            ) : streakCount >= 7 ? (
-              <motion.span
-                key="fire"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-                className="text-[10px] font-semibold text-accent-light bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5 uppercase tracking-wide"
-              >
-                On fire
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
-        {/* Penalty warning */}
-        <AnimatePresence>
-          {activePenalty && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2 text-red-400 bg-red-400/8 border border-red-400/20 rounded-lg px-3 py-2"
-            >
-              <span className="text-xs font-semibold shrink-0">!</span>
-              <p className="text-[11px] font-medium">
-                Penalty active — complete it to restore rank progress
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Time pressure (< 5h left + incomplete quests) */}
-        <AnimatePresence>
-          {showPressure && !activePenalty && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2 text-amber-400 bg-amber-400/8 border border-amber-400/20 rounded-lg px-3 py-2"
-            >
-              <span className="text-xs shrink-0">⏱</span>
-              <p className="text-[11px] font-medium">
-                {hLeft}h {mLeft}m left today —{' '}
-                {questsTotal - questsDone} quest
-                {questsTotal - questsDone !== 1 ? 's' : ''} remaining
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <StreakPanel
+          streakCount={streakCount}
+          streakAtRisk={streakAtRisk}
+          activePenalty={!!activePenalty}
+          showPressure={showPressure}
+          hoursLeft={hLeft}
+          minutesLeft={mLeft}
+          questsRemaining={questsTotal - questsDone}
+          variant="full"
+        />
       </motion.div>
 
       {/* ── 6. Stats radar chart ─────────────────────────────────────────────── */}
@@ -452,11 +264,11 @@ export default function HunterCard() {
           return (
             <>
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-[10px] text-muted uppercase tracking-widest">
+                <p className="text-xs text-muted uppercase tracking-widest">
                   {aiInsight ? 'AI Coach' : 'Insight'}
                 </p>
                 {aiInsight && (
-                  <span className="text-[9px] font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
                     AI
                   </span>
                 )}

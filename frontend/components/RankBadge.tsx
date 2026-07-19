@@ -8,12 +8,12 @@ interface RankBadgeProps {
 }
 
 const RANK_STYLES: Record<Rank, string> = {
-  E: 'text-gray-400   border-gray-400/40   bg-gray-400/10',
-  D: 'text-green-400  border-green-400/40  bg-green-400/10',
-  C: 'text-blue-400   border-blue-400/40   bg-blue-400/10',
-  B: 'text-purple-400 border-purple-400/40 bg-purple-400/10',
-  A: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10',
-  S: 'text-red-400    border-red-400/40    bg-red-400/10',
+  E: 'text-rank-e border-rank-e/40 bg-rank-e/10',
+  D: 'text-rank-d border-rank-d/40 bg-rank-d/10',
+  C: 'text-rank-c border-rank-c/40 bg-rank-c/10',
+  B: 'text-rank-b border-rank-b/40 bg-rank-b/10',
+  A: 'text-rank-a border-rank-a/40 bg-rank-a/10',
+  S: 'text-rank-s border-rank-s/40 bg-rank-s/10',
 };
 
 const SIZE_CLASSES = {

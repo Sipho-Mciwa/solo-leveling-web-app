@@ -4,12 +4,12 @@ import { motion } from 'framer-motion';
 import { Rank, RankProgress } from '@/lib/api';
 
 const RANK_STYLES: Record<Rank, string> = {
-  E: 'text-gray-400',
-  D: 'text-green-400',
-  C: 'text-blue-400',
-  B: 'text-purple-400',
-  A: 'text-yellow-400',
-  S: 'text-red-400',
+  E: 'text-rank-e',
+  D: 'text-rank-d',
+  C: 'text-rank-c',
+  B: 'text-rank-b',
+  A: 'text-rank-a',
+  S: 'text-rank-s',
 };
 
 interface RankProgressBarProps {

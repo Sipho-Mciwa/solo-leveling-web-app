@@ -30,7 +30,13 @@ export default function LoginPage() {
       }
       router.push('/');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(
+        err instanceof Error && err.message.includes('invalid-credential')
+          ? 'Incorrect email or password'
+          : err instanceof Error
+          ? err.message
+          : 'Authentication failed'
+      );
     } finally {
       setLoading(false);
     }
@@ -50,15 +56,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Solo Leveling</h1>
+    <div className="min-h-screen flex items-center justify-center px-4 bg-bg">
+      <div className="w-full max-w-sm rounded-3xl border border-border bg-surface overflow-hidden px-6 py-8 sm:px-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-white font-display">
+            {isSignUp ? 'New Hunter Registration' : 'Authenticate to Access the System'}
+          </h1>
           <p className="text-muted text-sm mt-2">Level up every day.</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="email"
@@ -66,7 +72,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
             required
-            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-muted focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-muted focus:outline-none focus:border-system transition-colors"
           />
           <input
             type="password"
@@ -75,43 +81,40 @@ export default function LoginPage() {
             placeholder="Password"
             required
             minLength={6}
-            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-muted focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-white placeholder-muted focus:outline-none focus:border-system transition-colors"
           />
 
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-danger text-xs">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-accent hover:bg-accent/80 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition-colors"
           >
-            {loading ? 'Loading...' : isSignUp ? 'Create account' : 'Sign in'}
+            {loading ? 'Loading...' : isSignUp ? 'Register' : 'Sign In'}
           </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center gap-3 my-4">
           <div className="flex-1 h-px bg-border" />
           <span className="text-muted text-xs">or</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        {/* Google */}
         <button
           onClick={handleGoogle}
           disabled={loading}
-          className="w-full bg-surface border border-border hover:border-accent/50 disabled:opacity-40 text-white font-medium py-3 rounded-xl text-sm transition-colors"
+          className="w-full bg-bg border border-border hover:border-system/50 disabled:opacity-40 text-white font-medium py-3 rounded-xl text-sm transition-colors"
         >
           Continue with Google
         </button>
 
-        {/* Toggle */}
         <p className="text-center text-xs text-muted mt-6">
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-accent-light hover:underline"
+            className="text-system-light hover:underline"
           >
             {isSignUp ? 'Sign in' : 'Sign up'}
           </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Star } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -33,7 +34,7 @@ const TIER_COLORS: Record<string | number, string> = {
 };
 
 const TIER_LABELS: Record<string | number, string> = {
-  1: 'I', 2: 'II', 3: 'III', 4: 'IV', rare: '★',
+  1: 'I', 2: 'II', 3: 'III', 4: 'IV',
 };
 
 // ─── TitleCard ────────────────────────────────────────────────────────────────
@@ -69,8 +70,8 @@ function TitleCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold border rounded px-1 py-0.5 ${tierClass}`}>
-              {tierLabel}
+            <span className={`text-[10px] font-bold border rounded px-1 py-0.5 flex items-center ${tierClass}`}>
+              {title.tier === 'rare' ? <Star size={9} className="fill-current" /> : tierLabel}
             </span>
             <p className={`text-sm font-semibold truncate ${title.unlocked ? 'text-white' : 'text-muted'}`}>
               {title.name}

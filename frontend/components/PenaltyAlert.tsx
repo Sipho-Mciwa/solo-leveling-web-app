@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { PenaltyQuest, updatePenaltyProgress } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 
@@ -38,7 +39,7 @@ export default function PenaltyAlert({ penalty, onUpdate }: PenaltyAlertProps) {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">⚠️</span>
+          <AlertTriangle size={14} className="text-danger" />
           <div>
             <p className="text-xs font-semibold text-red-400 uppercase tracking-wide">Penalty Quest</p>
             <h3 className="text-sm font-bold text-white mt-0.5">{penalty.title}</h3>

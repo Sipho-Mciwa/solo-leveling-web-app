@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
 import { DailyChallenge, AISuggestion, fetchAIChallenges } from '@/lib/api';
@@ -129,7 +130,7 @@ export default function ChallengeSection() {
                   className="flex items-start gap-3 px-4 py-3 rounded-xl border border-accent/20 bg-accent/5"
                 >
                   <div className="w-5 h-5 rounded-full border-2 border-accent/40 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[9px] text-accent-light/60">✦</span>
+                    <Sparkles size={10} className="text-accent-light/60" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{s.title}</p>

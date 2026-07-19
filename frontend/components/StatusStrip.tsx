@@ -10,7 +10,7 @@ import NextObjectiveCard from './NextObjectiveCard';
 
 export default function StatusStrip() {
   const { userProfile } = useAuth();
-  const { quests } = useQuests();
+  const { quests, loading } = useQuests();
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function StatusStrip() {
   if (!userProfile) return null;
 
   const { rank, streakCount } = userProfile;
-  const questsReady   = quests.length >= 0;
+  const questsReady   = !loading;
   const questsDone    = quests.filter((q) => q.completed).length;
   const questsTotal   = quests.length;
   const streakAtRisk  = streakCount > 0 && questsTotal > 0 && questsDone === 0;
@@ -29,7 +29,7 @@ export default function StatusStrip() {
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 space-y-4 mb-6">
-      <RankProgressBar rank={rank ?? 'E'} rankProgress={rankProgress} variant="compact" />
+      <RankProgressBar rank={rank} rankProgress={rankProgress} variant="compact" />
       <StreakPanel
         streakCount={streakCount}
         streakAtRisk={streakAtRisk}

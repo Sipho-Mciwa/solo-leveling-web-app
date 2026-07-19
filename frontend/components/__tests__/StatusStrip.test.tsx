@@ -11,6 +11,7 @@ vi.mock('@/context/AuthContext', () => ({
 vi.mock('@/context/QuestContext', () => ({
   useQuests: () => ({
     quests: [{ id: '1', title: 'Run 5km', completed: false, currentValue: 1, targetValue: 5 }],
+    loading: false,
   }),
 }));
 

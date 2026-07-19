@@ -24,6 +24,7 @@ import { xpRequiredForLevel } from '@/lib/xpUtils';
 import ProfileAvatar from './ProfileAvatar';
 import RankBadge from './RankBadge';
 import StatsRadarChart from './StatsRadarChart';
+import RankProgressBar from './RankProgressBar';
 import { resolveAchievementName } from '@/utils/achievementMap';
 import { generateLocalInsight } from '@/utils/systemVoice';
 import SystemMessage from './SystemMessage';
@@ -32,15 +33,6 @@ import { classifyInsightTone, TONE_STYLES } from '@/utils/systemStyles';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
-
-const RANK_STYLES: Record<Rank, string> = {
-  E: 'text-gray-400',
-  D: 'text-green-400',
-  C: 'text-blue-400',
-  B: 'text-purple-400',
-  A: 'text-yellow-400',
-  S: 'text-red-400',
-};
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -111,12 +103,6 @@ export default function HunterCard() {
   const displayTitleName = activeTitle ? resolveAchievementName(activeTitle) : null;
   const xpNeeded     = xpRequiredForLevel(level);
   const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
-
-  // ── Rank progress ─────────────────────────────────────────────────────────
-  const rankMetCount   = rankProgress?.metCount   ?? 0;
-  const rankTotalCount = rankProgress?.totalCount ?? 0;
-  const rankNextRank   = rankProgress?.nextRank   ?? null;
-  const rankPct        = rankTotalCount > 0 ? (rankMetCount / rankTotalCount) * 100 : 100;
 
   // ── Daily snapshot ────────────────────────────────────────────────────────
   const questsDone      = quests.filter((q) => q.completed).length;
@@ -227,52 +213,7 @@ export default function HunterCard() {
         </div>
 
         {/* Rank progress — criteria-based */}
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-bold ${RANK_STYLES[rank ?? 'E']}`}>{rank}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-subtle overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${rankPct}%` }}
-                transition={{ duration: 0.9, ease: 'easeOut', delay: 0.15 }}
-                style={{
-                  background:
-                    rankNextRank == null
-                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                      : 'linear-gradient(90deg, #7c3aed, #a78bfa)',
-                }}
-              />
-            </div>
-            {rankNextRank && (
-              <span className={`text-[11px] font-bold ${RANK_STYLES[rankNextRank]}`}>
-                {rankNextRank}
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-muted mt-1 text-right">
-            {rankNextRank == null
-              ? 'Max rank achieved'
-              : rankProgress
-              ? `${rankMetCount}/${rankTotalCount} conditions met for ${rankNextRank}-Rank`
-              : `Working towards ${rankNextRank}-Rank`}
-          </p>
-          {/* Criteria breakdown */}
-          {rankProgress && rankNextRank && rankProgress.criteria.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {rankProgress.criteria.map((c) => (
-                <div key={c.label} className="flex items-center justify-between text-[10px]">
-                  <span className={c.met ? 'text-green-400' : 'text-muted'}>
-                    {c.met ? '✓' : '·'} {c.label}
-                  </span>
-                  <span className={`tabular-nums ${c.met ? 'text-green-400' : 'text-muted'}`}>
-                    {c.current}/{c.target}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <RankProgressBar rank={rank ?? 'E'} rankProgress={rankProgress} variant="full" />
       </motion.div>
 
       {/* ── 3. Daily snapshot ────────────────────────────────────────────────── */}

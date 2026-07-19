@@ -1,9 +1,11 @@
 const { db } = require('../config/firebase');
-const { addXp } = require('./xpService');
+const { computeXpGain } = require('./xpService');
 const { updateUserRank } = require('./rankService');
 const { evaluateTitles } = require('./titleService');
 const { getMemory } = require('./aiMemory.service');
 const { VOICE_INSTRUCTION, FALLBACKS } = require('./systemVoice');
+const { logger } = require('../utils/logger');
+const { AppError } = require('../utils/AppError');
 
 // ─── Weekend helpers ───────────────────────────────────────────────────────────
 
@@ -45,7 +47,7 @@ async function callAI(prompt) {
       const result = await model.generateContent(prompt);
       return result.response.text().trim();
     } catch (e) {
-      console.error('[WeekendBoss] Gemini failed:', e.message);
+      logger.error({ err: e }, '[WeekendBoss] Gemini failed');
     }
   }
   if (process.env.GROQ_API_KEY) {
@@ -60,7 +62,7 @@ async function callAI(prompt) {
       });
       return completion.choices[0].message.content.trim();
     } catch (e) {
-      console.error('[WeekendBoss] Groq failed:', e.message);
+      logger.error({ err: e }, '[WeekendBoss] Groq failed');
     }
   }
   return null;
@@ -192,11 +194,11 @@ async function generateWeekendBoss(userId) {
     try {
       bossData = parseBossJSON(raw);
     } catch {
-      console.error('[WeekendBoss] JSON parse failed');
+      logger.error('[WeekendBoss] JSON parse failed');
     }
   }
   if (!bossData) {
-    console.warn('[WeekendBoss] Using default boss');
+    logger.warn('[WeekendBoss] Using default boss');
     bossData = DEFAULT_BOSS;
   }
 
@@ -252,10 +254,10 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
   const ref = db.collection('weekendBossChallenges').doc(bossId);
   const snap = await ref.get();
 
-  if (!snap.exists) throw new Error('Boss challenge not found');
+  if (!snap.exists) throw new AppError('Boss challenge not found', 404);
 
   const boss = snap.data();
-  if (boss.userId !== userId) throw new Error('Unauthorized');
+  if (boss.userId !== userId) throw new AppError('Unauthorized', 403);
 
   if (boss.status === 'expired') {
     return { success: false, message: 'Engagement window expired. Entity no longer accessible. No reward available.' };
@@ -302,28 +304,38 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
 
 async function claimWeekendReward(bossId, userId) {
   const ref = db.collection('weekendBossChallenges').doc(bossId);
-  const snap = await ref.get();
+  const userRef = db.collection('users').doc(userId);
 
-  if (!snap.exists) throw new Error('Boss challenge not found');
+  const result = await db.runTransaction(async (tx) => {
+    const [snap, userSnap] = await Promise.all([tx.get(ref), tx.get(userRef)]);
 
-  const boss = snap.data();
-  if (boss.userId !== userId) throw new Error('Unauthorized');
+    if (!snap.exists) throw new AppError('Boss challenge not found', 404);
+    const boss = snap.data();
+    if (boss.userId !== userId) throw new AppError('Unauthorized', 403);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
 
-  if (boss.status !== 'completed') {
-    const msg =
-      boss.status === 'claimed'  ? 'Reward already claimed. Status: complete.' :
-      boss.status === 'expired'  ? 'Engagement window expired. No reward available.' :
-                                   'Minimum output threshold not met. Complete the protocol before claiming.';
-    return { claimed: false, message: msg };
+    if (boss.status !== 'completed') {
+      const msg =
+        boss.status === 'claimed'  ? 'Reward already claimed. Status: complete.' :
+        boss.status === 'expired'  ? 'Engagement window expired. No reward available.' :
+                                     'Minimum output threshold not met. Complete the protocol before claiming.';
+      return { claimed: false, message: msg };
+    }
+
+    tx.update(ref, { status: 'claimed', claimedAt: new Date().toISOString() });
+
+    const xpGain = computeXpGain(userSnap.data(), boss.xpReward);
+    tx.update(userRef, xpGain.updates);
+
+    return { claimed: true, xp: xpGain.result };
+  });
+
+  if (result.claimed) {
+    updateUserRank(userId).catch((e) => logger.error({ err: e, userId }, 'Weekend boss rank update failed'));
+    evaluateTitles(userId).catch((e) => logger.error({ err: e, userId }, 'Weekend boss title eval failed'));
   }
 
-  await ref.update({ status: 'claimed', claimedAt: new Date().toISOString() });
-
-  const xpResult = await addXp(userId, boss.xpReward);
-  updateUserRank(userId).catch((e) => console.error('[WeekendBoss] rank update error:', e));
-  evaluateTitles(userId).catch((e) => console.error('[WeekendBoss] title eval error:', e));
-
-  return { claimed: true, xp: xpResult };
+  return result;
 }
 
 module.exports = { generateWeekendBoss, getWeekendBoss, completeWeekendBoss, claimWeekendReward };

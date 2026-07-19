@@ -1,22 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import Header from '@/components/Header';
 import HunterCard from '@/components/HunterCard';
 import SystemFeed from '@/components/SystemFeed';
 import LoadingScreen from '@/components/LoadingScreen';
 
 export default function HomePage() {
-  const { firebaseUser, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !firebaseUser) {
-      router.push('/login');
-    }
-  }, [loading, firebaseUser, router]);
+  const { firebaseUser, loading } = useRequireAuth();
 
   if (loading) return <LoadingScreen />;
 

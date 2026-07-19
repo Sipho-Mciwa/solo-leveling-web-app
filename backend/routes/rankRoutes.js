@@ -1,60 +1,38 @@
 const express = require('express');
+const { z } = require('zod');
 const router  = express.Router();
 const { getUserRank, getRankProgress, setActiveTitle } = require('../services/rankService');
 const { getTitleProgress, evaluateTitles } = require('../services/titleService');
-const { auth } = require('../config/firebase');
+const { authenticate } = require('../middleware/authenticate');
+const { asyncHandler } = require('../middleware/asyncHandler');
+const { validateBody } = require('../middleware/validate');
+const { logger } = require('../utils/logger');
 
-async function authenticate(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
-  try {
-    const decoded = await auth.verifyIdToken(header.split('Bearer ')[1]);
-    req.userId = decoded.uid;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}
+const setTitleSchema = z.object({
+  title: z.string().min(1),
+});
 
 // GET /api/rank  — recalculate rank + fire-and-forget title evaluation
-router.get('/', authenticate, async (req, res) => {
-  try {
-    evaluateTitles(req.userId).catch(() => {});
-    res.json(await getUserRank(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/', authenticate, asyncHandler(async (req, res) => {
+  evaluateTitles(req.userId).catch((e) => logger.error({ err: e, userId: req.userId }, 'Title evaluation failed'));
+  res.json(await getUserRank(req.userId));
+}));
 
 // GET /api/rank/progress  — next-rank criteria with current values
-router.get('/progress', authenticate, async (req, res) => {
-  try {
-    res.json(await getRankProgress(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/progress', authenticate, asyncHandler(async (req, res) => {
+  res.json(await getRankProgress(req.userId));
+}));
 
 // GET /api/rank/titles/progress  — evaluate earned titles then return full progress
-router.get('/titles/progress', authenticate, async (req, res) => {
-  try {
-    // Always evaluate first so newly-met conditions are awarded before the page renders
-    await evaluateTitles(req.userId);
-    res.json(await getTitleProgress(req.userId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/titles/progress', authenticate, asyncHandler(async (req, res) => {
+  // Always evaluate first so newly-met conditions are awarded before the page renders
+  await evaluateTitles(req.userId);
+  res.json(await getTitleProgress(req.userId));
+}));
 
 // POST /api/rank/title  — set active title
-router.post('/title', authenticate, async (req, res) => {
-  const { title } = req.body;
-  if (!title) return res.status(400).json({ error: 'title is required' });
-  try {
-    res.json(await setActiveTitle(req.userId, title));
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+router.post('/title', authenticate, validateBody(setTitleSchema), asyncHandler(async (req, res) => {
+  res.json(await setActiveTitle(req.userId, req.body.title));
+}));
 
 module.exports = router;

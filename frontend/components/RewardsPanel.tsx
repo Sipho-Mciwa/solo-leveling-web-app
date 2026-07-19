@@ -35,7 +35,7 @@ export default function RewardsPanel() {
           <div className="flex items-center gap-2 mt-1">
             <RankBadge rank={rank ?? 'E'} size="lg" />
             {activeTitle && (
-              <span className="text-xs text-muted italic">"{activeTitle}"</span>
+              <span className="text-xs text-muted italic">&quot;{activeTitle}&quot;</span>
             )}
           </div>
         </div>

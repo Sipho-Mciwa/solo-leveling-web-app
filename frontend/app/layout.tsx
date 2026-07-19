@@ -7,11 +7,12 @@ export const metadata: Metadata = {
   description: 'Gamified habit & fitness tracker',
 };
 
+// No maximumScale/userScalable lock — inputs already use 16px font-size to
+// avoid iOS's auto-zoom-on-focus, so pinch-zoom can stay enabled for
+// low-vision users without reintroducing that issue.
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,7 +1,9 @@
 const { db } = require('../config/firebase');
-const { addXp } = require('./xpService');
+const { computeXpGain } = require('./xpService');
 const { evaluateTitles } = require('./titleService');
 const { updateUserRank } = require('./rankService');
+const { logger } = require('../utils/logger');
+const { AppError } = require('../utils/AppError');
 
 const CHALLENGES = [
   { key: 'wake_up_6am',    title: 'Wake up at 6:00 AM', xpReward: 20 },
@@ -71,48 +73,65 @@ async function getTodayChallenges(userId) {
  */
 async function completeChallenge(docId, userId, challengeKey) {
   const ref = db.collection('dailyChallenges').doc(docId);
-  const snap = await ref.get();
+  const userRef = db.collection('users').doc(userId);
 
-  if (!snap.exists) throw new Error('Daily challenges not found');
+  const result = await db.runTransaction(async (tx) => {
+    const [snap, userSnap] = await Promise.all([tx.get(ref), tx.get(userRef)]);
 
-  const data = snap.data();
-  if (data.userId !== userId) throw new Error('Unauthorized');
+    if (!snap.exists) throw new AppError('Daily challenges not found', 404);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
 
-  const challenge = data.challenges.find((c) => c.key === challengeKey);
-  if (!challenge) throw new Error('Challenge not found');
-  if (challenge.completed) return { alreadyCompleted: true };
+    const data = snap.data();
+    if (data.userId !== userId) throw new AppError('Unauthorized', 403);
 
-  const updatedChallenges = data.challenges.map((c) =>
-    c.key === challengeKey ? { ...c, completed: true } : c
-  );
+    const challenge = data.challenges.find((c) => c.key === challengeKey);
+    if (!challenge) throw new AppError('Challenge not found', 404);
+    if (challenge.completed) return { alreadyCompleted: true };
 
-  const allComplete = updatedChallenges.every((c) => c.completed);
-  const shouldAwardBonus = allComplete && !data.bonusAwarded;
+    const updatedChallenges = data.challenges.map((c) =>
+      c.key === challengeKey ? { ...c, completed: true } : c
+    );
 
-  await ref.update({
-    challenges: updatedChallenges,
-    ...(shouldAwardBonus ? { bonusAwarded: true } : {}),
+    const allComplete = updatedChallenges.every((c) => c.completed);
+    const shouldAwardBonus = allComplete && !data.bonusAwarded;
+
+    tx.update(ref, {
+      challenges: updatedChallenges,
+      ...(shouldAwardBonus ? { bonusAwarded: true } : {}),
+    });
+
+    let user = userSnap.data();
+    const userUpdates = {};
+
+    const xpGain = computeXpGain(user, challenge.xpReward);
+    Object.assign(userUpdates, xpGain.updates);
+    let xpResult = xpGain.result;
+    user = { ...user, ...xpGain.updates };
+
+    let bonusXpResult = null;
+    if (shouldAwardBonus) {
+      const bonusGain = computeXpGain(user, ALL_COMPLETE_BONUS);
+      Object.assign(userUpdates, bonusGain.updates);
+      bonusXpResult = bonusGain.result;
+    }
+
+    tx.update(userRef, userUpdates);
+
+    return {
+      completed: true,
+      xp: xpResult,
+      bonusAwarded: shouldAwardBonus,
+      bonusXp: bonusXpResult,
+      allComplete,
+    };
   });
 
-  const xpResult = await addXp(userId, challenge.xpReward);
-
-  let bonusXpResult = null;
-  if (shouldAwardBonus) {
-    bonusXpResult = await addXp(userId, ALL_COMPLETE_BONUS);
+  if (result.allComplete) {
+    evaluateTitles(userId).catch((e) => logger.error({ err: e, userId }, 'Title evaluation failed'));
+    updateUserRank(userId).catch((e) => logger.error({ err: e, userId }, 'Rank update failed'));
   }
 
-  if (allComplete) {
-    evaluateTitles(userId).catch((e) => console.error('[TitleService] eval error:', e));
-    updateUserRank(userId).catch((e) => console.error('[RankService] update error:', e));
-  }
-
-  return {
-    completed: true,
-    xp: xpResult,
-    bonusAwarded: shouldAwardBonus,
-    bonusXp: bonusXpResult,
-    allComplete,
-  };
+  return result;
 }
 
 /**

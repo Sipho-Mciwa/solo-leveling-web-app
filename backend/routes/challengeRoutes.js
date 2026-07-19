@@ -1,69 +1,41 @@
 const express = require('express');
+const { z } = require('zod');
 const router = express.Router();
 const { getTodayChallenges, generateDailyChallenges, completeChallenge, getChallengeHistory } = require('../services/challengeService');
-const { auth } = require('../config/firebase');
+const { authenticate } = require('../middleware/authenticate');
+const { asyncHandler } = require('../middleware/asyncHandler');
+const { validateBody } = require('../middleware/validate');
 
-async function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing token' });
-  }
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    const decoded = await auth.verifyIdToken(idToken);
-    req.userId = decoded.uid;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}
+const completeChallengeSchema = z.object({
+  challengeKey: z.string().min(1),
+});
 
 // GET /api/challenges/history?month=YYYY-MM
-router.get('/history', authenticate, async (req, res) => {
+router.get('/history', authenticate, asyncHandler(async (req, res) => {
   const { month } = req.query;
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'month query param required (YYYY-MM)' });
   }
-  try {
-    const result = await getChallengeHistory(req.userId, month);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  const result = await getChallengeHistory(req.userId, month);
+  res.json(result);
+}));
 
 // GET /api/challenges/today
-router.get('/today', authenticate, async (req, res) => {
-  try {
-    const result = await getTodayChallenges(req.userId);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/today', authenticate, asyncHandler(async (req, res) => {
+  const result = await getTodayChallenges(req.userId);
+  res.json(result);
+}));
 
 // POST /api/challenges/generate
-router.post('/generate', authenticate, async (req, res) => {
-  try {
-    const result = await generateDailyChallenges(req.userId);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.post('/generate', authenticate, asyncHandler(async (req, res) => {
+  const result = await generateDailyChallenges(req.userId);
+  res.json(result);
+}));
 
 // PATCH /api/challenges/:id/complete
-router.patch('/:id/complete', authenticate, async (req, res) => {
-  const { challengeKey } = req.body;
-  if (!challengeKey || typeof challengeKey !== 'string') {
-    return res.status(400).json({ error: 'challengeKey is required' });
-  }
-  try {
-    const result = await completeChallenge(req.params.id, req.userId, challengeKey);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.patch('/:id/complete', authenticate, validateBody(completeChallengeSchema), asyncHandler(async (req, res) => {
+  const result = await completeChallenge(req.params.id, req.userId, req.body.challengeKey);
+  res.json(result);
+}));
 
 module.exports = router;

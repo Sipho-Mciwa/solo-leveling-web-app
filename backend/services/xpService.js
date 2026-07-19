@@ -1,4 +1,5 @@
 const { db } = require('../config/firebase');
+const { AppError } = require('../utils/AppError');
 
 const BASE_XP = 100;
 
@@ -6,13 +7,11 @@ function xpRequiredForLevel(level) {
   return Math.floor(BASE_XP * Math.pow(1.5, level));
 }
 
-async function addXp(userId, amount) {
-  const userRef  = db.collection('users').doc(userId);
-  const userSnap = await userRef.get();
-
-  if (!userSnap.exists) throw new Error('User not found');
-
-  const user          = userSnap.data();
+/**
+ * Pure function: given a user doc and an XP delta, computes the new xp/level.
+ * Does no I/O — callers decide how/when to persist `updates`.
+ */
+function computeXpGain(user, amount) {
   const previousLevel = user.level || 1;
   let newXp           = (user.xp || 0) + amount;
   let newLevel        = previousLevel;
@@ -25,15 +24,31 @@ async function addXp(userId, amount) {
 
   newXp = Math.max(0, newXp);
 
-  await userRef.update({ xp: newXp, level: newLevel });
-
   return {
-    xp:            newXp,
-    level:         newLevel,
-    xpGained:      amount,
-    leveledUp:     newLevel > previousLevel,
-    previousLevel,
+    updates: { xp: newXp, level: newLevel },
+    result: {
+      xp:            newXp,
+      level:         newLevel,
+      xpGained:      amount,
+      leveledUp:     newLevel > previousLevel,
+      previousLevel,
+    },
   };
+}
+
+// Wrapped in a transaction so concurrent calls (double-tap, retry, multi-tab)
+// can't both read the same stale xp/level and clobber each other's write.
+async function addXp(userId, amount) {
+  const userRef = db.collection('users').doc(userId);
+
+  return db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
+
+    const { updates, result } = computeXpGain(userSnap.data(), amount);
+    tx.update(userRef, updates);
+    return result;
+  });
 }
 
 /** Compute the total lifetime XP earned from level + remainder. */
@@ -45,4 +60,4 @@ function getTotalXp(level, xpRemainder) {
   return total;
 }
 
-module.exports = { addXp, xpRequiredForLevel, getTotalXp };
+module.exports = { addXp, computeXpGain, xpRequiredForLevel, getTotalXp };

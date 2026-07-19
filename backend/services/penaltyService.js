@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { addXp } = require('./xpService');
+const { AppError } = require('../utils/AppError');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ async function generatePenalty(userId) {
 
   // Fetch user
   const userSnap = await db.collection('users').doc(userId).get();
-  if (!userSnap.exists) throw new Error('User not found');
+  if (!userSnap.exists) throw new AppError('User not found', 404);
   const user = userSnap.data();
 
   // Did the user actually miss a day?
@@ -114,10 +115,10 @@ async function getActivePenalty(userId) {
 async function updatePenaltyProgress(penaltyId, userId, newValue) {
   const ref  = db.collection('penaltyQuests').doc(penaltyId);
   const snap = await ref.get();
-  if (!snap.exists) throw new Error('Penalty quest not found');
+  if (!snap.exists) throw new AppError('Penalty quest not found', 404);
 
   const penalty = snap.data();
-  if (penalty.userId !== userId) throw new Error('Unauthorized');
+  if (penalty.userId !== userId) throw new AppError('Unauthorized', 403);
   if (penalty.completed)         return { alreadyCompleted: true };
   if (penalty.expired)           return { expired: true };
 

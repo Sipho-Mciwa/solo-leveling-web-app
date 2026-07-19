@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { fetchQuestHistory, fetchChallengeHistory, QuestHistoryRow, ChallengeHistoryRow } from '@/lib/api';
 import Header from '@/components/Header';
 import DashboardTable from '@/components/DashboardTable';
@@ -24,8 +23,7 @@ function shiftMonth(month: string, delta: number): string {
 }
 
 export default function HistoryPage() {
-  const { firebaseUser, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const { firebaseUser, loading: authLoading } = useRequireAuth();
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(currentMonth);
@@ -33,10 +31,6 @@ export default function HistoryPage() {
   const [challenges, setChallenges] = useState<ChallengeHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !firebaseUser) router.push('/login');
-  }, [authLoading, firebaseUser, router]);
 
   const loadHistory = useCallback(async () => {
     if (!firebaseUser) return;
@@ -116,12 +110,7 @@ export default function HistoryPage() {
           const challengeRows = challenges.map((c) => ({
             questId: c.key,
             title: c.title,
-            history: Object.fromEntries(
-              Object.entries(c.history).map(([date, entry]) => [
-                date,
-                { completed: entry.completed, currentValue: 0 },
-              ])
-            ),
+            history: c.history,
           }));
           return (
             <div className="space-y-10">

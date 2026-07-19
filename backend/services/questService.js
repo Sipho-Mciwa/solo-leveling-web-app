@@ -1,8 +1,10 @@
 const { db } = require('../config/firebase');
-const { addXp } = require('./xpService');
-const { updateStreak } = require('./streakService');
+const { computeXpGain } = require('./xpService');
+const { computeStreakUpdate } = require('./streakService');
 const { applyDifficultyScaling } = require('./difficultyService');
-const { updateUserRank } = require('./rankService');
+const { computePromotion } = require('./rankService');
+const { getUserStats } = require('./statsService');
+const { AppError } = require('../utils/AppError');
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -63,14 +65,28 @@ async function generateDailyQuests(userId) {
     return { generated: false, message: 'Already generated for today' };
   }
 
-  // Load user's quest templates (defaults + custom)
-  const questsSnap = await db
-    .collection('quests')
-    .where('userId', 'in', [userId, null])
-    .get();
+  // Load user's quest templates: global defaults (isGlobal: true) + this
+  // user's custom quests. Two separate equality queries merged in memory,
+  // rather than a single `where('userId', 'in', [userId, null])` — that idiom
+  // relies on subtle null-equality semantics and doesn't extend cleanly if
+  // another "shared" scope is added later.
+  //
+  // Also queries the legacy `userId == null` shape for quest docs seeded
+  // before the isGlobal flag existed, so pre-existing users aren't re-seeded
+  // with duplicate quest templates; seedDefaultQuests uses deterministic doc
+  // IDs, so once it runs it overwrites those legacy docs with isGlobal: true.
+  const [globalSnap, legacyGlobalSnap, customSnap] = await Promise.all([
+    db.collection('quests').where('isGlobal', '==', true).get(),
+    db.collection('quests').where('userId', '==', null).get(),
+    db.collection('quests').where('userId', '==', userId).get(),
+  ]);
+  const byId = new Map();
+  for (const doc of [...globalSnap.docs, ...legacyGlobalSnap.docs, ...customSnap.docs]) {
+    byId.set(doc.id, doc);
+  }
 
   // If no quests exist for user, seed defaults first
-  let questDocs = questsSnap.docs;
+  let questDocs = [...byId.values()];
   if (questDocs.length === 0) {
     questDocs = await seedDefaultQuests(userId);
   }
@@ -115,7 +131,7 @@ async function seedDefaultQuests(_userId) {
     // Use a deterministic ID so re-seeding is idempotent (no duplicates)
     const docId = `default_${q.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
     const ref = db.collection('quests').doc(docId);
-    batch.set(ref, { ...q, userId: null }); // shared global quests
+    batch.set(ref, { ...q, isGlobal: true }); // shared global quests
   }
 
   await batch.commit();
@@ -128,65 +144,97 @@ async function seedDefaultQuests(_userId) {
 }
 
 /**
- * Update progress on a daily quest. Awards XP + updates streak on completion.
+ * Update progress on a daily quest. Awards XP + updates streak/rank on completion.
+ *
+ * The quest-completion write and all reward calculations (XP, bonus XP, streak,
+ * rank/titles) run inside a single Firestore transaction, so either everything
+ * commits together or nothing does — no risk of a quest being marked complete
+ * without its reward, or of two concurrent submissions clobbering each other's
+ * XP/streak/rank writes.
+ *
+ * Rank stats (derived from historical quests/challenges) are read once before
+ * the transaction starts, since they're read-only inputs to the rank check and
+ * not themselves being concurrently mutated by this operation. This means a
+ * quest completed in *this* call won't count toward its own rank check — it'll
+ * be picked up on the next quest/challenge/boss completion, same as before.
  */
 async function updateQuestProgress(dailyQuestId, userId, newValue) {
   const dqRef = db.collection('dailyQuests').doc(dailyQuestId);
-  const dqSnap = await dqRef.get();
+  const userRef = db.collection('users').doc(userId);
+  const stats = await getUserStats(userId);
 
-  if (!dqSnap.exists) throw new Error('Daily quest not found');
+  return db.runTransaction(async (tx) => {
+    const dqSnap = await tx.get(dqRef);
+    if (!dqSnap.exists) throw new AppError('Daily quest not found', 404);
 
-  const dq = dqSnap.data();
-  if (dq.userId !== userId) throw new Error('Unauthorized');
-  if (dq.completed) return { alreadyCompleted: true };
+    const dq = dqSnap.data();
+    if (dq.userId !== userId) throw new AppError('Unauthorized', 403);
+    if (dq.completed) return { alreadyCompleted: true };
 
-  // Fetch the quest template for targetValue + xpReward
-  const questSnap = await db.collection('quests').doc(dq.questId).get();
-  if (!questSnap.exists) throw new Error('Quest template not found');
-  const quest = questSnap.data();
+    const questRef = db.collection('quests').doc(dq.questId);
+    const [questSnap, userSnap] = await Promise.all([tx.get(questRef), tx.get(userRef)]);
+    if (!questSnap.exists) throw new AppError('Quest template not found', 404);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
 
-  // Use scaled target if present (new docs), fall back to template targetValue (old docs)
-  const target = dq.currentTarget ?? quest.targetValue;
-  const isComplete = newValue >= target;
+    const quest = questSnap.data();
 
-  // Delta logged this submission — used to auto-update the weekly boss
-  const delta = newValue - (dq.currentValue || 0);
+    // Use scaled target if present (new docs), fall back to template targetValue (old docs)
+    const target = dq.currentTarget ?? quest.targetValue;
+    const isComplete = newValue >= target;
 
-  await dqRef.update({
-    currentValue: newValue,
-    completed: isComplete,
-  });
+    tx.update(dqRef, { currentValue: newValue, completed: isComplete });
 
+    let xpResult = null;
+    let streakResult = null;
+    let rankResult = null;
+    let bonusXp = null;
 
-  let xpResult = null;
-  let streakResult = null;
-  let rankResult = null;
-  let bonusXp = null;
+    if (isComplete) {
+      let user = userSnap.data();
+      const userUpdates = {};
 
-  if (isComplete) {
-    xpResult = await addXp(userId, quest.xpReward);
-    streakResult = await updateStreak(userId);
-    rankResult = await updateUserRank(userId);
+      // Base XP
+      const xpGain = computeXpGain(user, quest.xpReward);
+      Object.assign(userUpdates, xpGain.updates);
+      xpResult = xpGain.result;
+      user = { ...user, ...xpGain.updates };
 
-    // Overperformance bonus: up to 50% extra XP for exceeding the target
-    if (newValue > target) {
-      const overRatio = Math.min((newValue - target) / target, OVERPERFORMANCE_CAP);
-      const bonusAmount = Math.floor(quest.xpReward * overRatio);
-      if (bonusAmount > 0) {
-        bonusXp = bonusAmount;
-        await addXp(userId, bonusAmount);
+      // Overperformance bonus: up to 50% extra XP for exceeding the target
+      if (newValue > target) {
+        const overRatio = Math.min((newValue - target) / target, OVERPERFORMANCE_CAP);
+        const bonusAmount = Math.floor(quest.xpReward * overRatio);
+        if (bonusAmount > 0) {
+          bonusXp = bonusAmount;
+          const bonusGain = computeXpGain(user, bonusAmount);
+          Object.assign(userUpdates, bonusGain.updates);
+          xpResult = { ...bonusGain.result, xpGained: xpResult.xpGained + bonusAmount, previousLevel: xpResult.previousLevel };
+          user = { ...user, ...bonusGain.updates };
+        }
       }
-    }
-  }
 
-  return {
-    completed:    isComplete,
-    currentValue: newValue,
-    xp:           xpResult,
-    streak:       streakResult,
-    rank:         rankResult,
-    bonusXp,
-  };
+      // Streak
+      const streakUpdate = computeStreakUpdate(user);
+      Object.assign(userUpdates, streakUpdate.updates);
+      streakResult = streakUpdate.result;
+      user = { ...user, ...streakUpdate.updates };
+
+      // Rank / titles
+      const promotion = computePromotion(user, stats);
+      Object.assign(userUpdates, promotion.updates);
+      rankResult = promotion.result;
+
+      tx.update(userRef, userUpdates);
+    }
+
+    return {
+      completed:    isComplete,
+      currentValue: newValue,
+      xp:           xpResult,
+      streak:       streakResult,
+      rank:         rankResult,
+      bonusXp,
+    };
+  });
 }
 
 /**

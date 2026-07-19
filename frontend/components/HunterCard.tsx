@@ -70,17 +70,36 @@ export default function HunterCard() {
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [questsReady,  setQuestsReady]  = useState(false);
   const [aiInsight,    setAiInsight]    = useState<string | null>(null);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
-    fetchStats()           .then(setStats)       .catch(() => {});
-    fetchTodayChallenges() .then(setChallenges)  .catch(() => {});
-    fetchActivePenalty()   .then((r) => setPenalty(r.penalty)).catch(() => {});
-    fetchRankProgress()    .then(setRankProgress).catch(() => {});
-    fetchTodayQuests()
-      .then((data) => { setQuests(data); setQuestsReady(true); })
-      .catch(() => { setQuestsReady(true); });
-    fetchAIInsight()       .then((r) => setAiInsight(r.insight)).catch(() => {});
+
+    // AI insight has its own local fallback (`insight` below), so a failure
+    // there is expected/non-critical and stays silent. The rest are surfaced
+    // as a single banner instead of failing silently — a partial data load
+    // (e.g. stats endpoint down) previously just rendered "—" forever with
+    // no indication anything was wrong.
+    const trackedLoads: Array<[string, Promise<unknown>]> = [
+      ['stats',       fetchStats().then(setStats)],
+      ['challenges',  fetchTodayChallenges().then(setChallenges)],
+      ['penalty',     fetchActivePenalty().then((r) => setPenalty(r.penalty))],
+      ['rank progress', fetchRankProgress().then(setRankProgress)],
+      ['quests',      fetchTodayQuests().then((data) => { setQuests(data); setQuestsReady(true); })],
+    ];
+
+    fetchAIInsight().then((r) => setAiInsight(r.insight)).catch(() => {});
+
+    Promise.allSettled(trackedLoads.map(([, p]) => p)).then((results) => {
+      const failed = results
+        .map((r, i) => (r.status === 'rejected' ? trackedLoads[i][0] : null))
+        .filter((x): x is string => x !== null);
+
+      if (failed.includes('quests')) setQuestsReady(true);
+      if (failed.length > 0) {
+        setLoadError(`Some data failed to load (${failed.join(', ')}). Try refreshing.`);
+      }
+    });
   }, [firebaseUser]);
 
   if (!userProfile || !firebaseUser) return null;
@@ -160,10 +179,16 @@ export default function HunterCard() {
 
         <h1 className="text-lg font-bold text-white leading-tight mt-3">{name}</h1>
 
+        {loadError && (
+          <p className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 mt-2">
+            {loadError}
+          </p>
+        )}
+
         <div className="flex items-center gap-2 mt-2">
           <RankBadge rank={rank ?? 'E'} size="md" />
           {displayTitleName && (
-            <span className="text-xs text-muted italic">"{displayTitleName}"</span>
+            <span className="text-xs text-muted italic">&quot;{displayTitleName}&quot;</span>
           )}
         </div>
       </motion.div>
@@ -438,7 +463,7 @@ export default function HunterCard() {
               </div>
               <SystemMessage tone={tone} className="p-3">
                 <p className={`text-xs leading-relaxed italic ${TONE_STYLES[tone].text}`}>
-                  "{insightText}"
+                  &quot;{insightText}&quot;
                 </p>
               </SystemMessage>
             </>

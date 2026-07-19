@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import LoadingScreen from '@/components/LoadingScreen';
 import {
   fetchTitleProgress,
@@ -119,8 +119,8 @@ function TitleCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TitlesPage() {
-  const { firebaseUser, loading, refreshProfile } = useAuth();
-  const router = useRouter();
+  const { refreshProfile } = useAuth();
+  const { firebaseUser, loading } = useRequireAuth();
 
   const [titles,      setTitles]      = useState<TitleDefinition[]>([]);
   const [categories,  setCategories]  = useState<string[]>([]);
@@ -128,10 +128,7 @@ export default function TitlesPage() {
   const [fetching,    setFetching]    = useState(true);
   const [pending,     setPending]     = useState<string | null>(null);
   const [error,       setError]       = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading && !firebaseUser) router.push('/login');
-  }, [loading, firebaseUser, router]);
+  const [equipError,  setEquipError]  = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -148,12 +145,13 @@ export default function TitlesPage() {
   async function handleEquip(id: string) {
     if (pending) return;
     setPending(id);
+    setEquipError(null);
     try {
       await setActiveTitle(id);
       await refreshProfile();
       setTitles((prev) => prev.map((t) => ({ ...t, active: t.id === id })));
-    } catch {
-      // silently ignore
+    } catch (err) {
+      setEquipError(err instanceof Error ? err.message : 'Failed to equip title');
     } finally {
       setPending(null);
     }
@@ -183,6 +181,12 @@ export default function TitlesPage() {
 
         {error && (
           <p className="text-sm text-red-400 text-center py-8">{error}</p>
+        )}
+
+        {equipError && (
+          <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl p-3 mb-4">
+            {equipError}
+          </p>
         )}
 
         {/* Category tabs */}

@@ -1,9 +1,9 @@
 'use client';
 
-import { QuestDayEntry } from '@/lib/api';
+import { HistoryDayEntry } from '@/lib/api';
 
 interface TableCellProps {
-  entry?: QuestDayEntry;
+  entry?: HistoryDayEntry;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -38,7 +38,7 @@ export default function TableCell({ entry, isToday, isFuture }: TableCellProps) 
   }
 
   // Partial progress (logged but not done)
-  if (entry && entry.currentValue > 0) {
+  if (entry && (entry.currentValue ?? 0) > 0) {
     return (
       <div
         title={`In progress (${entry.currentValue})`}

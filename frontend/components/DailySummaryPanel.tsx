@@ -31,7 +31,7 @@ export default function DailySummaryPanel() {
   return (
     <div className="mb-8 rounded-2xl bg-surface border border-border p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-white">Today's XP</h3>
+        <h3 className="text-sm font-semibold text-white">Today&apos;s XP</h3>
         <span className="text-white font-bold text-sm">
           {totalEarned}
           <span className="text-muted font-normal"> / {totalMaxXp} XP</span>

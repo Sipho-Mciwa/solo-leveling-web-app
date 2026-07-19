@@ -10,8 +10,8 @@ import RankBadge from './RankBadge';
 import RiskIndicators from './RiskIndicators';
 
 const NAV_TABS = [
-  { label: 'Profile',   href: '/'          },
-  { label: 'Today',     href: '/dashboard' },
+  { label: 'Dashboard', href: '/'          },
+  { label: 'Profile',   href: '/profile'   },
   { label: 'History',   href: '/history'   },
   { label: 'Analytics', href: '/analytics' },
   { label: 'Titles',    href: '/titles'    },

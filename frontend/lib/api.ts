@@ -108,6 +108,19 @@ export function fetchStats() {
   return apiFetch<HunterStats>('/api/stats');
 }
 
+export function fetchHunterRecords() {
+  return apiFetch<HunterRecords>('/api/stats/records');
+}
+
+// Hunter character-sheet fields — see lib/hunterDetails.ts for the
+// placeholder fallback shown until these are set.
+export function updateHunterDetails(details: Partial<UserProfile>) {
+  return apiFetch<UserProfile>('/api/users/me/details', {
+    method: 'PATCH',
+    body: JSON.stringify(details),
+  });
+}
+
 // Weekend Boss
 export function generateWeekendBoss() {
   return apiFetch<{ generated: boolean; reason?: string; boss?: WeekendBoss }>(
@@ -188,6 +201,15 @@ export interface UserProfile {
   rank: Rank;
   titles: string[];
   activeTitle: string | null;
+  // Hunter character-sheet fields — not yet backed by real user input; see
+  // lib/hunterDetails.ts for the placeholder values shown until they are.
+  firstName?: string;
+  lastName?: string;
+  height?: string;
+  age?: number;
+  weight?: string;
+  bloodType?: string;
+  jobClass?: string;
 }
 
 export interface DailyQuest {
@@ -435,6 +457,17 @@ export interface HunterStats {
   DISCIPLINE: number;
   INTELLECT:  number;
   delta:      StatDelta;
+}
+
+export interface HunterRecord {
+  value: number;
+  date: string;
+}
+
+export interface HunterRecords {
+  longestStreak: number | null;
+  mostRepsInADay: HunterRecord | null;
+  longestRun: HunterRecord | null;
 }
 
 export interface XPResult {

@@ -3,38 +3,16 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from 'react-countup';
-import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import {
-  fetchStats,
-  fetchTodayQuests,
-  fetchTodayChallenges,
-  fetchActivePenalty,
-  fetchRankProgress,
-  fetchAIInsight,
-  setActiveTitle,
-  HunterStats,
-  DailyQuest,
-  DailyChallengesDoc,
-  PenaltyQuest,
-  RankProgress,
-  Rank,
-} from '@/lib/api';
-import { xpRequiredForLevel } from '@/lib/xpUtils';
-import ProfileAvatar from './ProfileAvatar';
-import RankBadge from './RankBadge';
-import StatsRadarChart from './StatsRadarChart';
-import RankProgressBar from './RankProgressBar';
-import StreakPanel from './StreakPanel';
-import NextObjectiveCard from './NextObjectiveCard';
-import { resolveAchievementName } from '@/utils/achievementMap';
-import { generateLocalInsight } from '@/utils/systemVoice';
-import SystemMessage from './SystemMessage';
-import { classifyInsightTone, TONE_STYLES } from '@/utils/systemStyles';
+import { fetchStats, fetchHunterRecords, HunterStats, HunterRecords } from '@/lib/api';
+import StatsRadarChart, { StatKey, STAT_ORDER, STAT_LABELS } from './StatsRadarChart';
+import { getHunterDetails } from '@/lib/hunterDetails';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
+function formatRecordDate(date: string | undefined): string {
+  if (!date) return '';
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -43,246 +21,166 @@ const sectionVariant = (delay: number) => ({
   animate: { opacity: 1, y: 0, transition: { duration: 0.38, ease: 'easeOut' as const, delay } },
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Small layout primitives ───────────────────────────────────────────────────
 
-const STAT_KEYS: StatKey[] = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
-
-function getWeakestStat(stats: HunterStats): StatKey {
-  return STAT_KEYS.reduce((a, b) => (stats[a] < stats[b] ? a : b));
+function DetailRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[10px] text-muted uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-white font-medium">{value}</span>
+    </div>
+  );
 }
 
+function RecordCell({ label, value, date }: { label: string; value: string; date?: string }) {
+  return (
+    <div>
+      <p className="text-[9px] text-muted uppercase tracking-wide">{label}</p>
+      <p className="text-sm text-white font-bold font-display mt-0.5">{value}</p>
+      {date && <p className="text-[9px] text-muted/60 mt-0.5">{formatRecordDate(date)}</p>}
+    </div>
+  );
+}
+
+function StatNumber({ stats, statKey, isWeak }: { stats: HunterStats; statKey: StatKey; isWeak: boolean }) {
+  const d = stats.delta[statKey];
+  const absD = Math.abs(d);
+  const deltaLabel = absD <= 3 ? '—' : d > 0 ? `+${d}` : `${d}`;
+  const deltaColor = absD <= 3 ? 'text-muted' : d > 0 ? 'text-green-400' : 'text-red-400';
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className={`text-[9px] font-semibold uppercase tracking-wide ${isWeak ? 'text-amber-400' : 'text-muted'}`}>
+        {STAT_LABELS[statKey]}
+      </span>
+      <span className={`text-sm font-bold tabular-nums leading-none font-display ${isWeak ? 'text-amber-400' : 'text-white'}`}>
+        <CountUp end={stats[statKey]} duration={1.1} useEasing />
+      </span>
+      <span className={`text-[9px] tabular-nums leading-none ${deltaColor}`}>{deltaLabel}</span>
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getWeakestStat(stats: HunterStats): StatKey {
+  return STAT_ORDER.reduce((a, b) => (stats[a] < stats[b] ? a : b));
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HunterCard() {
-  const { firebaseUser, userProfile, refreshProfile } = useAuth();
+  const { firebaseUser, userProfile } = useAuth();
 
-  const [stats,        setStats]        = useState<HunterStats | null>(null);
-  const [quests,       setQuests]       = useState<DailyQuest[]>([]);
-  const [challenges,   setChallenges]   = useState<DailyChallengesDoc | null>(null);
-  const [penalty,      setPenalty]      = useState<PenaltyQuest | null>(null);
-  const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
-  const [questsReady,  setQuestsReady]  = useState(false);
-  const [aiInsight,    setAiInsight]    = useState<string | null>(null);
-  const [loadError,    setLoadError]    = useState<string | null>(null);
+  const [stats,     setStats]     = useState<HunterStats | null>(null);
+  const [records,   setRecords]   = useState<HunterRecords | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseUser) return;
-
-    // AI insight has its own local fallback (`insight` below), so a failure
-    // there is expected/non-critical and stays silent. The rest are surfaced
-    // as a single banner instead of failing silently — a partial data load
-    // (e.g. stats endpoint down) previously just rendered "—" forever with
-    // no indication anything was wrong.
-    const trackedLoads: Array<[string, Promise<unknown>]> = [
-      ['stats',       fetchStats().then(setStats)],
-      ['challenges',  fetchTodayChallenges().then(setChallenges)],
-      ['penalty',     fetchActivePenalty().then((r) => setPenalty(r.penalty))],
-      ['rank progress', fetchRankProgress().then(setRankProgress)],
-      ['quests',      fetchTodayQuests().then((data) => { setQuests(data); setQuestsReady(true); })],
-    ];
-
-    fetchAIInsight().then((r) => setAiInsight(r.insight)).catch(() => {});
-
-    Promise.allSettled(trackedLoads.map(([, p]) => p)).then((results) => {
-      const failed = results
-        .map((r, i) => (r.status === 'rejected' ? trackedLoads[i][0] : null))
-        .filter((x): x is string => x !== null);
-
-      if (failed.includes('quests')) setQuestsReady(true);
-      if (failed.length > 0) {
-        setLoadError(`Some data failed to load (${failed.join(', ')}). Try refreshing.`);
-      }
+    fetchStats().then(setStats).catch(() => {
+      setLoadError('Stats failed to load. Try refreshing.');
     });
+    fetchHunterRecords().then(setRecords).catch(() => {});
   }, [firebaseUser]);
 
   if (!userProfile || !firebaseUser) return null;
 
-  const { xp, level, streakCount, rank, activeTitle, titles } = userProfile;
-  const { displayName, photoURL, email } = firebaseUser;
-
-  const name             = displayName ?? email?.split('@')[0] ?? 'Hunter';
-  const displayTitleName = activeTitle ? resolveAchievementName(activeTitle) : null;
-  const xpNeeded     = xpRequiredForLevel(level);
-  const xpPct        = Math.min(100, xpNeeded > 0 ? (xp / xpNeeded) * 100 : 0);
-
-  // ── Daily snapshot ────────────────────────────────────────────────────────
-  const questsDone      = quests.filter((q) => q.completed).length;
-  const questsTotal     = quests.length;
-  const challengesDone  = challenges?.challenges.filter((c) => c.completed).length ?? 0;
-  const challengesTotal = challenges?.challenges.length ?? 0;
-
-  // ── Next objective ────────────────────────────────────────────────────────
-  const nextQuest = quests.find((q) => !q.completed) ?? null;
-
-  // ── Streak & pressure ────────────────────────────────────────────────────
-  const streakAtRisk = streakCount > 0 && questsReady && questsTotal > 0 && questsDone === 0;
-
-  const now      = new Date();
-  const midnight = new Date(now);
-  midnight.setDate(midnight.getDate() + 1);
-  midnight.setHours(0, 0, 0, 0);
-  const hoursLeft    = (midnight.getTime() - now.getTime()) / 3_600_000;
-  const showPressure = questsReady && questsTotal > 0 && questsDone < questsTotal && hoursLeft < 5;
-  const hLeft        = Math.floor(hoursLeft);
-  const mLeft        = Math.floor((hoursLeft - hLeft) * 60);
-
-  const activePenalty = penalty && !penalty.completed && !penalty.expired;
+  const { uid, displayName } = firebaseUser;
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const weakestStat: StatKey | null = stats ? getWeakestStat(stats) : null;
-  const insight = generateLocalInsight(stats, streakCount, questsDone, questsTotal);
 
-  // ── Titles ────────────────────────────────────────────────────────────────
-  const recentTitle     = (titles?.length ?? 0) > 1 ? titles[titles.length - 1] : null;
-  const showAchievement = recentTitle && recentTitle !== 'E Rank Hunter';
+  // ── Character sheet ──────────────────────────────────────────────────────
+  const details = getHunterDetails(uid, displayName, userProfile);
 
   return (
-    <div className="rounded-3xl border border-border bg-surface overflow-hidden">
+    <motion.div
+      {...sectionVariant(0)}
+      className="rounded-xl border border-border bg-surface p-4 sm:p-5 space-y-4"
+    >
 
-      {/* ── 1. Identity ─────────────────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0)}
-        className="flex flex-col items-center text-center px-4 sm:px-6 pt-8 pb-6"
-      >
-        <ProfileAvatar photoURL={photoURL} displayName={displayName} email={email} />
+      {/* ── Hunter details + stats — always side by side, even on mobile ────── */}
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
+        <div>
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-[10px] text-muted uppercase tracking-widest">Hunter Details</p>
+            {details.isPlaceholder && (
+              <span className="text-[9px] text-muted/60 italic shrink-0">unverified</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <DetailRow label="Name"       value={details.firstName} />
+            <DetailRow label="Surname"    value={details.lastName || '—'} />
+            <DetailRow label="Height"     value={details.height} />
+            <DetailRow label="Age"        value={details.age} />
+            <DetailRow label="Weight"     value={details.weight} />
+            <DetailRow label="Blood Type" value={details.bloodType} />
+            <DetailRow label="Job Class"  value={details.jobClass} />
+            <DetailRow label="Hunter ID"  value={details.hunterId} />
+          </div>
+        </div>
 
         <AnimatePresence>
-          {showAchievement && (
+          {stats && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 20 }}
-              className="mt-3 inline-flex items-center gap-1.5 bg-success/10 border border-success/20 rounded-full px-3 py-0.5"
+              key="stats-section"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
             >
-              <span className="text-xs font-semibold uppercase tracking-widest text-success">
-                Achievement
-              </span>
-              <span className="text-xs text-success">{resolveAchievementName(recentTitle ?? '')}</span>
+              <StatsRadarChart stats={stats} weakestStat={weakestStat} bare />
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
 
-        <h1 className="text-lg font-bold text-white leading-tight mt-3">{name}</h1>
-
-        {loadError && (
-          <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-full px-3 py-1 mt-2">
-            {loadError}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 mt-2">
-          <RankBadge rank={rank ?? 'E'} size="md" />
-          {displayTitleName && (
-            <span className="text-xs text-muted italic">&quot;{displayTitleName}&quot;</span>
-          )}
-        </div>
-      </motion.div>
-
-      {/* ── 2. XP bar + Rank progress ────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0.07)}
-        className="px-4 sm:px-6 pb-5 space-y-4"
-      >
-        {/* XP bar */}
-        <div>
-          <div className="flex justify-between text-[11px] text-muted mb-1.5">
-            <span>
-              Level{' '}
-              <CountUp end={level} duration={0.8} className="text-white font-semibold font-display" />
-            </span>
-            <span className="tabular-nums font-display">
-              <CountUp end={xp} duration={1.4} separator="," /> / {xpNeeded.toLocaleString()} XP
-            </span>
+      {/* ── Bottom row: stat numbers ──────────────────────────────────────────── */}
+      <div className="border-t border-border pt-4 flex items-center">
+        {stats ? (
+          <div className="flex-1 grid grid-cols-5">
+            {STAT_ORDER.map((key) => (
+              <StatNumber key={key} stats={stats} statKey={key} isWeak={key === weakestStat} />
+            ))}
           </div>
-          <div className="h-1.5 rounded-full bg-subtle overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-accent"
-              initial={{ width: 0 }}
-              animate={{ width: `${xpPct}%` }}
-              transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
-              style={{
-                // Subtle glow when nearly full
-                boxShadow: xpPct >= 85 ? '0 0 8px 2px rgba(124, 58, 237, 0.55)' : undefined,
-              }}
+        ) : (
+          <AnimatePresence>
+            {loadError && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-[10px] text-warning"
+              >
+                {loadError}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
+
+      {/* ── Records ───────────────────────────────────────────────────────────── */}
+      {records && (records.longestStreak != null || records.mostRepsInADay || records.longestRun) && (
+        <div className="border-t border-border pt-4">
+          <p className="text-[10px] text-muted uppercase tracking-widest mb-3">Records</p>
+          <div className="grid grid-cols-3 gap-4">
+            <RecordCell
+              label="Longest Streak"
+              value={records.longestStreak != null ? `${records.longestStreak}d` : '—'}
+            />
+            <RecordCell
+              label="Most Reps / Day"
+              value={records.mostRepsInADay ? `${records.mostRepsInADay.value}` : '—'}
+              date={records.mostRepsInADay?.date}
+            />
+            <RecordCell
+              label="Longest Run"
+              value={records.longestRun ? `${records.longestRun.value} km` : '—'}
+              date={records.longestRun?.date}
             />
           </div>
-          <p className="text-xs text-muted mt-1 text-right">
-            {Math.round(100 - xpPct)}% to Level {level + 1}
-          </p>
-        </div>
-
-        {/* Rank progress — criteria-based */}
-        <RankProgressBar rank={rank ?? 'E'} rankProgress={rankProgress} variant="full" />
-      </motion.div>
-
-      {questsReady && nextQuest && (
-        <div className="px-4 sm:px-6 py-4 border-t border-border">
-          <NextObjectiveCard quest={nextQuest} ready={questsReady} />
         </div>
       )}
 
-      {/* ── 5. Streak + pressure ─────────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0.21)}
-        className="px-4 sm:px-6 py-4 border-t border-border"
-      >
-        <StreakPanel
-          streakCount={streakCount}
-          streakAtRisk={streakAtRisk}
-          activePenalty={!!activePenalty}
-          showPressure={showPressure}
-          hoursLeft={hLeft}
-          minutesLeft={mLeft}
-          questsRemaining={questsTotal - questsDone}
-          variant="full"
-        />
-      </motion.div>
-
-      {/* ── 6. Stats radar chart ─────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {stats && (
-          <motion.div
-            key="stats-section"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <StatsRadarChart stats={stats} weakestStat={weakestStat} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── 7. AI insight ────────────────────────────────────────────────────── */}
-      <motion.div
-        {...sectionVariant(0.28)}
-        className="px-4 sm:px-6 py-4 border-t border-border"
-      >
-        {(() => {
-          const insightText = aiInsight ?? insight;
-          const tone        = classifyInsightTone(insightText);
-          return (
-            <>
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-xs text-muted uppercase tracking-widest">
-                  {aiInsight ? 'AI Coach' : 'Insight'}
-                </p>
-                {aiInsight && (
-                  <span className="text-xs font-semibold uppercase tracking-wide text-accent-light/60 bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5">
-                    AI
-                  </span>
-                )}
-              </div>
-              <SystemMessage tone={tone} className="p-3">
-                <p className={`text-xs leading-relaxed italic ${TONE_STYLES[tone].text}`}>
-                  &quot;{insightText}&quot;
-                </p>
-              </SystemMessage>
-            </>
-          );
-        })()}
-      </motion.div>
-
-    </div>
+    </motion.div>
   );
 }

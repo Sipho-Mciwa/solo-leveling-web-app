@@ -191,7 +191,7 @@ export default function SystemFeed() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut', delay: 0.15 }}
-      className="rounded-2xl border border-border bg-surface overflow-hidden mt-4"
+      className="rounded-xl border border-border bg-surface overflow-hidden"
     >
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <button

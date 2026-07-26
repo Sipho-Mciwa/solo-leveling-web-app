@@ -120,6 +120,10 @@ export function fetchWeekendBoss() {
   return apiFetch<{ boss: WeekendBoss | null }>('/api/boss/weekend/current');
 }
 
+export function fetchWeekendBossHistory() {
+  return apiFetch<WeekendBossHistoryResponse>('/api/boss/weekend/history');
+}
+
 export function completeWeekendBoss(bossId: string, value: number, notes: string) {
   return apiFetch<WeekendBossCompleteResult>(`/api/boss/weekend/${bossId}/complete`, {
     method: 'POST',
@@ -350,18 +354,32 @@ export interface WeekendBoss {
   status: WeekendBossStatus;
   submission: WeekendBossSubmission | null;
   claimedAt: string | null;
+  bonusXp?: number;
 }
 
 export interface WeekendBossCompleteResult {
   success: boolean;
   message: string;
   xpReward?: number;
+  bonusXp?: number;
 }
 
 export interface WeekendBossClaimResult {
   claimed: boolean;
   message?: string;
   xp?: XPResult;
+  bonusXp?: number;
+}
+
+export interface WeekendBossStats {
+  defeated: number;
+  missed: number;
+  currentStreak: number;
+}
+
+export interface WeekendBossHistoryResponse {
+  history: WeekendBoss[];
+  stats: WeekendBossStats;
 }
 
 export interface DailyChallenge {

@@ -70,14 +70,23 @@ async function callAI(prompt) {
 
 // ─── Prompt + parse ───────────────────────────────────────────────────────────
 
+// Weekend bosses are a weekly spike, not a daily-quest replacement — the XP
+// bands here run ~1.4x the original values so a clear feels disproportionately
+// generous relative to the daily grind, while requirements keep scaling harder
+// per rank so the difficulty climb stays intact.
 const RANK_REQUIREMENTS = {
-  E: { runMin: 3,  runMax: 5,  repsMin: 50,  repsMax: 100, xpMin: 200, xpMax: 280 },
-  D: { runMin: 5,  runMax: 8,  repsMin: 100, repsMax: 150, xpMin: 260, xpMax: 340 },
-  C: { runMin: 7,  runMax: 10, repsMin: 150, repsMax: 200, xpMin: 320, xpMax: 420 },
-  B: { runMin: 10, runMax: 12, repsMin: 200, repsMax: 250, xpMin: 400, xpMax: 500 },
-  A: { runMin: 12, runMax: 15, repsMin: 250, repsMax: 300, xpMin: 480, xpMax: 580 },
-  S: { runMin: 15, runMax: 25, repsMin: 300, repsMax: 500, xpMin: 550, xpMax: 700 },
+  E: { runMin: 3,  runMax: 5,  repsMin: 50,  repsMax: 100, xpMin: 300, xpMax: 400 },
+  D: { runMin: 5,  runMax: 8,  repsMin: 100, repsMax: 150, xpMin: 380, xpMax: 500 },
+  C: { runMin: 7,  runMax: 10, repsMin: 150, repsMax: 200, xpMin: 460, xpMax: 600 },
+  B: { runMin: 10, runMax: 12, repsMin: 200, repsMax: 250, xpMin: 580, xpMax: 720 },
+  A: { runMin: 12, runMax: 15, repsMin: 250, repsMax: 300, xpMin: 700, xpMax: 840 },
+  S: { runMin: 15, runMax: 25, repsMin: 300, repsMax: 500, xpMin: 800, xpMax: 1000 },
 };
+
+// Overperformance bonus for exceeding the minimum requirement, mirroring the
+// daily-quest bonus in questService.js — capped higher (75% vs 50%) since this
+// is a once-a-week effort rather than something that could be farmed daily.
+const OVERPERFORMANCE_CAP = 0.75;
 
 function buildBossPrompt(user, memory) {
   const rank        = user.rank || 'E';
@@ -120,6 +129,14 @@ Strict rules:
 - description and flavourText must follow system voice — no emotional language, no motivational phrases`;
 }
 
+/** XP bonus for beating the minimum requirement, capped at OVERPERFORMANCE_CAP of the base reward. */
+function computeOverperformanceBonus(boss, submittedValue) {
+  const { minValue } = boss.requirements;
+  if (submittedValue <= minValue) return 0;
+  const overRatio = Math.min((submittedValue - minValue) / minValue, OVERPERFORMANCE_CAP);
+  return Math.floor(boss.xpReward * overRatio);
+}
+
 function parseBossJSON(text) {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return null;
@@ -139,7 +156,7 @@ function parseBossJSON(text) {
       minValue: Number(req.minValue),
       unit: String(req.unit || (req.type === 'run' ? 'km' : 'reps')),
     },
-    xpReward: Math.max(150, Math.min(800, Number(parsed.xpReward) || 300)),
+    xpReward: Math.max(200, Math.min(1100, Number(parsed.xpReward) || 350)),
   };
 }
 
@@ -153,7 +170,7 @@ const DEFAULT_BOSS = {
     minValue: 100,
     unit:     'reps',
   },
-  xpReward: 300,
+  xpReward: 350,
 };
 
 // ─── Core functions ───────────────────────────────────────────────────────────
@@ -250,6 +267,46 @@ async function getWeekendBoss(userId) {
   return { boss };
 }
 
+/**
+ * Pure function: given weekend-boss docs sorted newest-first, excludes the
+ * current in-progress weekend and derives history + stats. `currentStreak`
+ * counts consecutive most recent weekends claimed, stopping at the first
+ * gap/miss — it only looks at weekends where a boss actually existed, not
+ * every calendar weekend since signup, since a user who never opened the app
+ * on a given weekend never had a boss generated for it.
+ */
+function computeBossHistory(docsDescByWeekendId, currentWeekendId, limit) {
+  const history = docsDescByWeekendId
+    .filter((boss) => boss.weekendId !== currentWeekendId)
+    .slice(0, limit);
+
+  const defeated = history.filter((b) => b.status === 'claimed').length;
+  const missed = history.filter((b) => b.status === 'expired').length;
+
+  let currentStreak = 0;
+  for (const boss of history) {
+    if (boss.status !== 'claimed') break;
+    currentStreak++;
+  }
+
+  return { history, stats: { defeated, missed, currentStreak } };
+}
+
+async function getWeekendBossHistory(userId, limit = 20) {
+  const currentWeekendId = getWeekendId();
+
+  const snap = await db
+    .collection('weekendBossChallenges')
+    .where('userId', '==', userId)
+    .orderBy('weekendId', 'desc')
+    .limit(limit + 1) // +1 to account for the current in-progress weekend, if any
+    .get();
+
+  const docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  return computeBossHistory(docs, currentWeekendId, limit);
+}
+
 async function completeWeekendBoss(bossId, userId, { value, notes }) {
   const ref = db.collection('weekendBossChallenges').doc(bossId);
   const snap = await ref.get();
@@ -295,10 +352,13 @@ async function completeWeekendBoss(bossId, userId, { value, notes }) {
 
   await ref.update({ status: 'completed', submission });
 
+  const bonusXp = computeOverperformanceBonus(boss, numericValue);
+
   return {
     success: true,
     message: 'Entity neutralized. Output accepted. Proceed to claim reward.',
     xpReward: boss.xpReward,
+    bonusXp,
   };
 }
 
@@ -322,12 +382,15 @@ async function claimWeekendReward(bossId, userId) {
       return { claimed: false, message: msg };
     }
 
-    tx.update(ref, { status: 'claimed', claimedAt: new Date().toISOString() });
+    const bonusXp = boss.submission
+      ? computeOverperformanceBonus(boss, boss.submission.value)
+      : 0;
+    tx.update(ref, { status: 'claimed', claimedAt: new Date().toISOString(), bonusXp });
 
-    const xpGain = computeXpGain(userSnap.data(), boss.xpReward);
+    const xpGain = computeXpGain(userSnap.data(), boss.xpReward + bonusXp);
     tx.update(userRef, xpGain.updates);
 
-    return { claimed: true, xp: xpGain.result };
+    return { claimed: true, xp: xpGain.result, bonusXp };
   });
 
   if (result.claimed) {
@@ -338,4 +401,12 @@ async function claimWeekendReward(bossId, userId) {
   return result;
 }
 
-module.exports = { generateWeekendBoss, getWeekendBoss, completeWeekendBoss, claimWeekendReward };
+module.exports = {
+  generateWeekendBoss,
+  getWeekendBoss,
+  getWeekendBossHistory,
+  completeWeekendBoss,
+  claimWeekendReward,
+  computeOverperformanceBonus,
+  computeBossHistory,
+};

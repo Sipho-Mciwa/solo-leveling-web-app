@@ -6,7 +6,7 @@ import { UserProfile } from './api';
 // same "random" placeholder shows every time instead of reshuffling on
 // every reload.
 
-const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+const SEXES = ['Male', 'Female'];
 const JOB_CLASSES = ['Fighter', 'Assassin', 'Mage', 'Tank', 'Ranger', 'Healer'];
 
 function seedFromString(seed: string): number {
@@ -38,13 +38,25 @@ function inRange(rand: () => number, min: number, max: number): number {
   return Math.round(min + rand() * (max - min));
 }
 
+/** Whole years elapsed since `dateOfBirth` (YYYY-MM-DD), as of now. */
+function computeAge(dateOfBirth: string): number {
+  const birth = new Date(dateOfBirth);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const hasNotHadBirthdayYet =
+    now.getMonth() < birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate());
+  if (hasNotHadBirthdayYet) age--;
+  return age;
+}
+
 export interface HunterDetails {
   firstName: string;
   lastName: string;
   height: string;
   age: number;
   weight: string;
-  bloodType: string;
+  sex: string;
   jobClass: string;
   hunterId: string;
   /** True if every field came from the real profile, not a placeholder. */
@@ -66,16 +78,16 @@ export function getHunterDetails(
   const [fallbackFirst, fallbackLast] = splitDisplayName(displayName);
 
   const hasRealDetails = Boolean(
-    profile.height || profile.age || profile.weight || profile.bloodType || profile.jobClass
+    profile.height || profile.dateOfBirth || profile.weight || profile.sex || profile.jobClass
   );
 
   return {
     firstName: profile.firstName ?? fallbackFirst,
     lastName:  profile.lastName  ?? fallbackLast,
     height:    profile.height    ?? `${inRange(rand, 160, 195)} cm`,
-    age:       profile.age       ?? inRange(rand, 18, 35),
+    age:       profile.dateOfBirth ? computeAge(profile.dateOfBirth) : inRange(rand, 18, 35),
     weight:    profile.weight    ?? `${inRange(rand, 55, 95)} kg`,
-    bloodType: profile.bloodType ?? pick(rand, BLOOD_TYPES),
+    sex:       profile.sex       ?? pick(rand, SEXES),
     jobClass:  profile.jobClass  ?? pick(rand, JOB_CLASSES),
     hunterId:  `HTR-${(seedFromString(userId) % 1_000_000).toString().padStart(6, '0')}`,
     isPlaceholder: !hasRealDetails,

@@ -201,14 +201,15 @@ export interface UserProfile {
   rank: Rank;
   titles: string[];
   activeTitle: string | null;
-  // Hunter character-sheet fields — not yet backed by real user input; see
-  // lib/hunterDetails.ts for the placeholder values shown until they are.
+  // Hunter character-sheet fields — see lib/hunterDetails.ts for the
+  // placeholder values shown for whichever of these aren't set yet.
   firstName?: string;
   lastName?: string;
   height?: string;
-  age?: number;
+  /** YYYY-MM-DD — age is derived from this, not stored directly. */
+  dateOfBirth?: string;
   weight?: string;
-  bloodType?: string;
+  sex?: string;
   jobClass?: string;
 }
 

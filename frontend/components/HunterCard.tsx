@@ -115,7 +115,7 @@ export default function HunterCard() {
             <DetailRow label="Height"     value={details.height} />
             <DetailRow label="Age"        value={details.age} />
             <DetailRow label="Weight"     value={details.weight} />
-            <DetailRow label="Blood Type" value={details.bloodType} />
+            <DetailRow label="Sex"        value={details.sex} />
             <DetailRow label="Job Class"  value={details.jobClass} />
             <DetailRow label="Hunter ID"  value={details.hunterId} />
           </div>

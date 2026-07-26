@@ -9,9 +9,11 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -64,6 +66,12 @@ export default function LoginPage() {
           </h1>
           <p className="text-muted text-sm mt-2">Level up every day.</p>
         </div>
+
+        {authError && (
+          <p className="text-danger text-xs text-center bg-danger/10 border border-danger/20 rounded-xl px-3 py-2 mb-4">
+            {authError}
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input

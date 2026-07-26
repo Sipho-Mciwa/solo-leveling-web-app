@@ -12,23 +12,16 @@ import ProgressBar from './ProgressBar';
 // completion, which is the point: the app is unusable until it's cleared.
 export default function PenaltyLockoutModal() {
   const { penalty, setPenalty } = usePenalty();
-  const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   if (!penalty || penalty.completed) return null;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleComplete() {
     if (!penalty) return;
-    const val = parseFloat(inputValue);
-    if (isNaN(val) || val <= 0) return;
-
     setSubmitting(true);
     try {
-      const newValue = penalty.currentValue + val;
-      const result = await updatePenaltyProgress(penalty.id, newValue);
+      const result = await updatePenaltyProgress(penalty.id, penalty.targetValue);
       setPenalty({ ...penalty, currentValue: result.currentValue, completed: result.completed });
-      setInputValue('');
     } catch (err) {
       console.error('Failed to update penalty:', err);
     } finally {
@@ -79,25 +72,15 @@ export default function PenaltyLockoutModal() {
           </div>
           <ProgressBar current={penalty.currentValue} target={penalty.targetValue} color="bg-danger" />
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="flex gap-2 mt-4">
-            <input
-              type="number"
-              min="0"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={`Add ${penalty.unit}`}
-              autoFocus
-              className="flex-1 bg-subtle border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted focus:outline-none focus:border-danger transition-colors"
-            />
-            <button
-              type="submit"
-              disabled={submitting || !inputValue}
-              className="px-4 py-2 bg-danger hover:bg-danger/80 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {submitting ? '...' : 'Log'}
-            </button>
-          </form>
+          {/* Complete button */}
+          <button
+            type="button"
+            onClick={handleComplete}
+            disabled={submitting}
+            className="w-full mt-4 px-4 py-2.5 bg-danger hover:bg-danger/80 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {submitting ? '...' : 'Complete'}
+          </button>
         </motion.div>
       </div>
     </AnimatePresence>

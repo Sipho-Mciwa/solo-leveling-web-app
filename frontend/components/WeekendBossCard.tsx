@@ -50,7 +50,6 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
 
   const [status,    setStatus]    = useState<WeekendBossStatus>(boss.status);
   const [isUrgent,  setIsUrgent]  = useState(() => computeTimeLeft(boss.endTime).total < 3_600_000);
-  const [inputVal,  setInputVal]  = useState('');
   const [notes,     setNotes]     = useState('');
   const [error,     setError]     = useState<string | null>(null);
   const [submitting,setSubmitting]= useState(false);
@@ -90,17 +89,14 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
     return () => timeouts.forEach(clearTimeout);
   }, [boss.endTime, status]);
 
-  // ── Submit completion ────────────────────────────────────────────────────────
-  async function handleSubmit() {
+  // ── Submit completion — meets the minimum exactly, so no overperformance
+  // bonus applies (that mechanic needs a value beyond the minimum, and
+  // there's no input to provide one anymore) ──────────────────────────────
+  async function handleComplete() {
     setError(null);
-    const num = parseFloat(inputVal);
-    if (isNaN(num) || num <= 0) {
-      setError('Enter a valid number.');
-      return;
-    }
     setSubmitting(true);
     try {
-      const result = await completeWeekendBoss(boss.id, num, notes);
+      const result = await completeWeekendBoss(boss.id, boss.requirements.minValue, notes);
       if (result.success) {
         const updated = { ...boss, status: 'completed' as WeekendBossStatus };
         setStatus('completed');
@@ -235,7 +231,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
         </p>
       </div>
 
-      {/* ── Input section (active only) ─────────────────────────────────────── */}
+      {/* ── Complete section (active only) ──────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {status === 'active' && (
           <motion.div
@@ -245,19 +241,6 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.25 }}
           >
-            <p className="text-[10px] text-muted uppercase tracking-widest mb-2">Log your result</p>
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="number"
-                min="0"
-                step={boss.requirements.type === 'run' ? '0.1' : '1'}
-                placeholder={boss.requirements.type === 'run' ? 'km covered' : 'reps completed'}
-                value={inputVal}
-                onChange={(e) => { setInputVal(e.target.value); setError(null); }}
-                className="flex-1 bg-surface border border-border text-white text-sm rounded-xl px-3 py-2.5 outline-none focus:border-red-500/60 placeholder:text-muted/50"
-              />
-              <span className="text-xs text-muted shrink-0">{boss.requirements.unit}</span>
-            </div>
             <textarea
               placeholder="Optional notes (form, time, conditions...)"
               value={notes}
@@ -280,12 +263,12 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             </AnimatePresence>
 
             <motion.button
-              onClick={handleSubmit}
-              disabled={submitting || !inputVal}
+              onClick={handleComplete}
+              disabled={submitting}
               whileTap={{ scale: 0.97 }}
               className="w-full py-3 rounded-xl bg-red-600/80 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold tracking-wide transition-colors"
             >
-              {submitting ? 'Submitting...' : 'Submit Result'}
+              {submitting ? 'Submitting...' : 'Complete'}
             </motion.button>
           </motion.div>
         )}

@@ -53,17 +53,33 @@ describe('getHunterDetails', () => {
   test('prefers real profile values over placeholders once set', () => {
     const details = getHunterDetails('user-1', 'Sipho Mciwa', baseProfile({
       height: '180 cm',
-      age: 30,
+      dateOfBirth: '1999-12-17',
       weight: '75 kg',
-      bloodType: 'O+',
+      sex: 'Male',
       jobClass: 'Fighter',
     }));
     expect(details.height).toBe('180 cm');
-    expect(details.age).toBe(30);
     expect(details.weight).toBe('75 kg');
-    expect(details.bloodType).toBe('O+');
+    expect(details.sex).toBe('Male');
     expect(details.jobClass).toBe('Fighter');
     expect(details.isPlaceholder).toBe(false);
+  });
+
+  test('computes age from dateOfBirth as of today, not a stored number', () => {
+    // A birthday that lands exactly today, N years ago — age is
+    // deterministic regardless of when this test runs.
+    const now = new Date();
+    const dob = new Date(now.getFullYear() - 30, now.getMonth(), now.getDate());
+    const iso = dob.toISOString().slice(0, 10);
+
+    const details = getHunterDetails('user-1', 'Sipho Mciwa', baseProfile({ dateOfBirth: iso }));
+    expect(details.age).toBe(30);
+  });
+
+  test('falls back to a placeholder age when dateOfBirth is not set', () => {
+    const details = getHunterDetails('user-1', 'Sipho Mciwa', baseProfile());
+    expect(details.age).toBeGreaterThanOrEqual(18);
+    expect(details.age).toBeLessThanOrEqual(35);
   });
 
   test('hunter ID is a stable HTR-###### code derived from the user id', () => {

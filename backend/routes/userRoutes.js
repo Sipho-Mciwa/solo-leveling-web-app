@@ -32,15 +32,16 @@ router.get('/me', authenticate, asyncHandler(async (req, res) => {
 }));
 
 // Hunter character-sheet fields — all optional so a partial update (e.g.
-// just correcting height) doesn't require resending every field.
+// just correcting height) doesn't require resending every field. Age is
+// derived client-side from dateOfBirth, not stored directly.
 const hunterDetailsSchema = z.object({
-  firstName: z.string().trim().min(1).max(40).optional(),
-  lastName:  z.string().trim().max(40).optional(),
-  height:    z.string().trim().max(20).optional(),
-  age:       z.number().int().min(1).max(150).optional(),
-  weight:    z.string().trim().max(20).optional(),
-  bloodType: z.string().trim().max(10).optional(),
-  jobClass:  z.string().trim().max(30).optional(),
+  firstName:   z.string().trim().min(1).max(40).optional(),
+  lastName:    z.string().trim().max(40).optional(),
+  height:      z.string().trim().max(20).optional(),
+  dateOfBirth: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD').optional(),
+  weight:      z.string().trim().max(20).optional(),
+  sex:         z.string().trim().max(20).optional(),
+  jobClass:    z.string().trim().max(30).optional(),
 });
 
 // PATCH /api/users/me/details — set/update hunter character-sheet fields.

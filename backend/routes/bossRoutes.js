@@ -4,6 +4,7 @@ const router  = express.Router();
 const {
   generateWeekendBoss,
   getWeekendBoss,
+  getWeekendBossHistory,
   completeWeekendBoss,
   claimWeekendReward,
 } = require('../services/weekendBossService');
@@ -26,6 +27,11 @@ router.post('/weekend/generate', authenticate, asyncHandler(async (req, res) => 
 // GET /api/boss/weekend/current
 router.get('/weekend/current', authenticate, asyncHandler(async (req, res) => {
   res.json(await getWeekendBoss(req.userId));
+}));
+
+// GET /api/boss/weekend/history
+router.get('/weekend/history', authenticate, asyncHandler(async (req, res) => {
+  res.json(await getWeekendBossHistory(req.userId));
 }));
 
 // POST /api/boss/weekend/:id/complete

@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { TONE_STYLES } from '@/utils/systemStyles';
+import { projectXpGain } from '@/lib/xpUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function pad(n: number) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WeekendBossCard({ boss, onUpdate }: Props) {
-  const { refreshProfile } = useAuth();
+  const { userProfile, refreshProfile } = useAuth();
 
   const [status,    setStatus]    = useState<WeekendBossStatus>(boss.status);
   const [isUrgent,  setIsUrgent]  = useState(() => computeTimeLeft(boss.endTime).total < 3_600_000);
@@ -55,6 +56,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
   const [submitting,setSubmitting]= useState(false);
   const [claiming,  setClaiming]  = useState(false);
   const [claimXP,   setClaimXP]   = useState<XPResult | null>(null);
+  const [bonusXp,   setBonusXp]   = useState(0);
 
   const [showFlash, setShowFlash] = useState(false);
 
@@ -102,6 +104,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
       if (result.success) {
         const updated = { ...boss, status: 'completed' as WeekendBossStatus };
         setStatus('completed');
+        setBonusXp(result.bonusXp ?? 0);
         onUpdate(updated);
       } else {
         setError(result.message);
@@ -120,6 +123,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
       const result = await claimWeekendBossReward(boss.id);
       if (result.claimed && result.xp) {
         setClaimXP(result.xp);
+        setBonusXp(result.bonusXp ?? 0);
         setStatus('claimed');
         onUpdate({ ...boss, status: 'claimed' });
         refreshProfile();
@@ -298,11 +302,26 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
           >
             <p className="text-sm text-green-400 font-semibold mb-1">Entity Neutralized. Proceed to claim reward.</p>
             {boss.submission && (
-              <p className="text-xs text-muted mb-4">
-                Submitted: {boss.submission.value} {boss.requirements.unit}
-                {boss.submission.notes && ` · "${boss.submission.notes}"`}
-              </p>
+              <div className="mb-4">
+                <p className="text-xs text-muted">
+                  Submitted: {boss.submission.value} {boss.requirements.unit}
+                  {boss.submission.notes && ` · "${boss.submission.notes}"`}
+                </p>
+                {bonusXp > 0 && (
+                  <p className="text-xs text-yellow-400 font-medium mt-1">
+                    Overperformance bonus: +{bonusXp} XP
+                  </p>
+                )}
+              </div>
             )}
+            {userProfile && (() => {
+              const preview = projectXpGain(userProfile.xp, userProfile.level, boss.xpReward + bonusXp);
+              return preview.leveledUp ? (
+                <p className="text-xs text-accent-light font-semibold mb-3">
+                  Claiming will take you to Level {preview.level}!
+                </p>
+              ) : null;
+            })()}
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -323,7 +342,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
               transition={{ repeat: Infinity, duration: 2 }}
               className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black text-sm font-bold tracking-wide transition-colors"
             >
-              {claiming ? 'Claiming...' : `Claim ${boss.xpReward} XP`}
+              {claiming ? 'Claiming...' : `Claim ${boss.xpReward + bonusXp} XP`}
             </motion.button>
           </motion.div>
         )}
@@ -340,7 +359,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             <p className="text-lg font-bold text-yellow-400">Protocol Complete. Reward Disbursed.</p>
             {claimXP ? (
               <p className="text-xs text-muted mt-1">
-                +{claimXP.xpGained} XP · Level {claimXP.level}
+                +{claimXP.xpGained} XP{bonusXp > 0 && ` (incl. +${bonusXp} bonus)`} · Level {claimXP.level}
                 {claimXP.leveledUp && (
                   <span className="ml-2 text-accent-light font-semibold">Level Up!</span>
                 )}

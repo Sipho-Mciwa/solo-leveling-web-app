@@ -38,7 +38,10 @@ async function generateDailyChallenges(userId) {
     return { generated: false, message: 'Already generated for today' };
   }
 
-  await db.collection('dailyChallenges').add({
+  // Deterministic ID so a concurrent duplicate call (see generateDailyQuests
+  // for the full race explanation) overwrites instead of creating a second
+  // doc for the same user/day.
+  await db.collection('dailyChallenges').doc(`${userId}_${date}`).set({
     userId,
     date,
     challenges: CHALLENGES.map((c) => ({ ...c, completed: false })),

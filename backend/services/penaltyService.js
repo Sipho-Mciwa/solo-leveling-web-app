@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { computeXpGain } = require('./xpService');
+const { wereAllQuestsCompleted } = require('./questService');
 const { AppError } = require('../utils/AppError');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,8 +68,14 @@ async function generatePenalty(userId) {
   if (!userSnap.exists) throw new AppError('User not found', 404);
   const user = userSnap.data();
 
-  // Did the user actually miss a day?
-  if (!user.lastActiveDate || user.lastActiveDate >= yesterday) {
+  // Never been active at all — nothing to evaluate yet (brand-new account).
+  if (!user.lastActiveDate) {
+    return { generated: false, message: 'No missed days' };
+  }
+
+  // Did the user complete every daily quest yesterday?
+  const allCompleted = await wereAllQuestsCompleted(userId, yesterday);
+  if (allCompleted) {
     return { generated: false, message: 'No missed days' };
   }
 

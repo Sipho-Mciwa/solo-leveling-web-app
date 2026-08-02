@@ -94,3 +94,40 @@ describe('calculatePerQuestStreaks', () => {
     expect(streaks.default_running).toBe(0);
   });
 });
+
+describe('applyDifficultyScaling', () => {
+  function fakeQuestDoc(id, targetValue) {
+    return { id, data: () => ({ targetValue }) };
+  }
+
+  test('never scales below base target when there is no qualifying streak', async () => {
+    const { applyDifficultyScaling } = require('../services/difficultyService');
+    const results = await applyDifficultyScaling('user-1', [fakeQuestDoc('default_push_ups', 20)]);
+    expect(results[0].currentTarget).toBe(20);
+    expect(results[0].difficultyMultiplier).toBe(1.0);
+  });
+
+  test('a single completed day does not move the target off base', async () => {
+    const { applyDifficultyScaling } = require('../services/difficultyService');
+    const userId = 'user-1';
+    await mockFakeDb.collection('dailyQuests').add({
+      userId, questId: 'default_running', date: daysAgoStr(1), completed: true,
+    });
+    const results = await applyDifficultyScaling(userId, [fakeQuestDoc('default_running', 5)]);
+    expect(results[0].currentTarget).toBe(5);
+    expect(results[0].difficultyMultiplier).toBe(1.0);
+  });
+
+  test('scales up once a 3-day qualifying streak is reached', async () => {
+    const { applyDifficultyScaling } = require('../services/difficultyService');
+    const userId = 'user-1';
+    for (let n = 1; n <= 3; n++) {
+      await mockFakeDb.collection('dailyQuests').add({
+        userId, questId: 'default_push_ups', date: daysAgoStr(n), completed: true,
+      });
+    }
+    const results = await applyDifficultyScaling(userId, [fakeQuestDoc('default_push_ups', 20)]);
+    expect(results[0].currentTarget).toBe(21); // round(20 * 1.05)
+    expect(results[0].difficultyMultiplier).toBe(1.05);
+  });
+});

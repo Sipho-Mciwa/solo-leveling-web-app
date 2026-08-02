@@ -7,7 +7,6 @@ const MULTIPLIER_MAX = 1.5;
 const STEP_PER_QUALIFYING_INTERVAL = 0.05; // +5% per 3-day per-quest streak
 const QUALIFYING_INTERVAL_DAYS = 3;
 const STREAK_LOOKBACK_DAYS = 60; // bounds the Firestore query in calculatePerQuestStreaks
-const NEUTRAL_PERFORMANCE = 0.5;         // used when no history exists
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -102,22 +101,15 @@ function generateScaledTarget(baseTarget, multiplier) {
  * questDocs — Firestore doc references (real or mock), each with .id and .data()
  * Returns array of { questId, baseTarget, currentTarget, difficultyMultiplier }
  */
-async function applyDifficultyScaling(userId, questDocs, streakCount, lastActiveDate) {
-  const today = todayStr();
-
-  // How many days has the user been inactive?
-  const missedDays = lastActiveDate
-    ? Math.max(0, daysBetween(lastActiveDate, today) - 1)
-    : 0;
-
+async function applyDifficultyScaling(userId, questDocs) {
   const questIds = questDocs.map((d) => d.id);
-  const performanceMap = await calculatePerformance(userId, questIds);
+  const streaks = await calculatePerQuestStreaks(userId, questIds);
 
   return questDocs.map((qDoc) => {
     const data = qDoc.data();
     const baseTarget = data.targetValue;
-    const performanceScore = performanceMap[qDoc.id] ?? NEUTRAL_PERFORMANCE;
-    const multiplier = calculateDifficultyMultiplier(performanceScore, streakCount, missedDays);
+    const streak = streaks[qDoc.id] ?? 0;
+    const multiplier = calculateDifficultyMultiplier(streak);
     const currentTarget = generateScaledTarget(baseTarget, multiplier);
 
     return {

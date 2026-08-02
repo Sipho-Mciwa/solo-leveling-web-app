@@ -7,6 +7,7 @@ const MULTIPLIER_MAX = 1.5;
 const STEP_PER_QUALIFYING_INTERVAL = 0.05; // +5% per 3-day per-quest streak
 const QUALIFYING_INTERVAL_DAYS = 3;
 const STREAK_LOOKBACK_DAYS = 60; // bounds the Firestore query in calculatePerQuestStreaks
+const NEUTRAL_PERFORMANCE = 0.5;         // used when no history exists
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

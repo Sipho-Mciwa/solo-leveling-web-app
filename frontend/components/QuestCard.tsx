@@ -43,7 +43,6 @@ function DifficultyBadge({ multiplier }: { multiplier: number }) {
 export default function QuestCard({ quest }: QuestCardProps) {
   const { updateProgress } = useQuests();
   const { refreshProfile } = useAuth();
-  const [inputValue, setInputValue]     = useState('');
   const [submitting, setSubmitting]     = useState(false);
   const [reward, setReward]             = useState<RewardResult | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -57,22 +56,14 @@ export default function QuestCard({ quest }: QuestCardProps) {
     setJustCompleted(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const val = parseFloat(inputValue);
-    if (isNaN(val) || val <= 0) return;
-
+  async function handleComplete() {
     setSubmitting(true);
     try {
-      const newValue = quest.currentValue + val;
-      await updateProgress(quest.id, newValue);
-      if (newValue >= effectiveTarget) {
-        setJustCompleted(true);
-        await refreshProfile();
-        const result = triggerRandomReward(quest.xpReward);
-        if (result.show) setReward(result);
-      }
-      setInputValue('');
+      await updateProgress(quest.id, effectiveTarget);
+      setJustCompleted(true);
+      await refreshProfile();
+      const result = triggerRandomReward(quest.xpReward);
+      if (result.show) setReward(result);
     } catch (err) {
       console.error('Failed to update progress:', err);
     } finally {
@@ -158,36 +149,27 @@ export default function QuestCard({ quest }: QuestCardProps) {
         color={quest.completed ? 'bg-accent-light' : 'bg-accent'}
       />
 
-      {/* Input — hidden when complete */}
+      {/* Complete button — hidden when complete */}
       <AnimatePresence>
         {!quest.completed && (
-          <motion.form
-            key="form"
+          <motion.div
+            key="complete-btn"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
-            onSubmit={handleSubmit}
-            className="flex gap-2 mt-4"
+            className="mt-4"
           >
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={`Add ${unit}`}
-              className="flex-1 bg-subtle border border-border rounded-lg px-3 py-2 text-sm text-white placeholder-muted focus:outline-none focus:border-accent transition-colors min-h-[44px]"
-            />
             <motion.button
-              type="submit"
-              disabled={submitting || !inputValue}
-              whileTap={{ scale: 0.93 }}
+              type="button"
+              onClick={handleComplete}
+              disabled={submitting}
+              whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.1 }}
-              className="px-4 py-2 bg-accent hover:bg-accent/80 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors min-h-[44px]"
+              className="w-full py-2.5 bg-accent hover:bg-accent/80 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors min-h-[44px]"
             >
-              {submitting ? '…' : 'Log'}
+              {submitting ? '…' : 'Complete'}
             </motion.button>
-          </motion.form>
+          </motion.div>
         )}
       </AnimatePresence>
 

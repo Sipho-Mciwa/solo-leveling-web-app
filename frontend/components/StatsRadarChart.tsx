@@ -11,19 +11,20 @@ import {
   type TooltipProps,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import CountUp from 'react-countup';
 import { HunterStats } from '@/lib/api';
 
-type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
+export type StatKey = 'PHY' | 'SPD' | 'STAMINA' | 'DISCIPLINE' | 'INTELLECT';
 
 interface Props {
   stats: HunterStats;
   weakestStat: StatKey | null;
+  /** Omits the panel border/background — for nesting inside another panel. */
+  bare?: boolean;
 }
 
-const STAT_ORDER: StatKey[] = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
+export const STAT_ORDER: StatKey[] = ['PHY', 'SPD', 'STAMINA', 'DISCIPLINE', 'INTELLECT'];
 
-const STAT_LABELS: Record<StatKey, string> = {
+export const STAT_LABELS: Record<StatKey, string> = {
   PHY: 'PHY',
   SPD: 'SPD',
   STAMINA: 'STA',
@@ -81,7 +82,7 @@ function AxisTick(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function StatsRadarChart({ stats, weakestStat }: Props) {
+export default function StatsRadarChart({ stats, weakestStat, bare = false }: Props) {
   const data = STAT_ORDER.map((key) => ({ subject: STAT_LABELS[key], value: stats[key] }));
 
   return (
@@ -89,11 +90,14 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="px-4 sm:px-6 pt-5 pb-4 border-t border-border"
+      className={bare ? '' : 'rounded-xl border border-border bg-surface p-4'}
     >
-      <p className="text-[10px] text-muted uppercase tracking-widest text-center mb-1">
-        Hunter Stats
-      </p>
+      <div className="flex items-baseline justify-between mb-1">
+        <p className="text-[10px] text-muted uppercase tracking-widest">Stats</p>
+        {weakestStat && (
+          <p className="text-[10px] text-amber-400/80">{STAT_LABELS[weakestStat]} weakest</p>
+        )}
+      </div>
 
       {/* SVG glow filter */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -138,49 +142,6 @@ export default function StatsRadarChart({ stats, weakestStat }: Props) {
           />
         </RadarChart>
       </ResponsiveContainer>
-
-      {/* Stat grid: count-up values + delta */}
-      <div className="grid grid-cols-5 gap-0 mt-1 pb-1">
-        {STAT_ORDER.map((key) => {
-          const value  = stats[key];
-          const d      = stats.delta[key];
-          const isWeak = key === weakestStat;
-
-          const absD       = Math.abs(d);
-          const deltaLabel = absD <= 3 ? '—' : d > 0 ? `+${d}` : `${d}`;
-          const deltaColor =
-            absD <= 3 ? 'text-muted' : d > 0 ? 'text-green-400' : 'text-red-400';
-
-          return (
-            <div key={key} className="flex flex-col items-center gap-0.5">
-              <span
-                className={`text-[9px] font-semibold uppercase tracking-wide ${
-                  isWeak ? 'text-amber-400' : 'text-muted'
-                }`}
-              >
-                {STAT_LABELS[key]}
-              </span>
-              <span
-                className={`text-sm font-bold tabular-nums leading-none font-display ${
-                  isWeak ? 'text-amber-400' : 'text-white'
-                }`}
-              >
-                <CountUp end={value} duration={1.1} useEasing />
-              </span>
-              <span className={`text-[9px] tabular-nums leading-none ${deltaColor}`}>
-                {deltaLabel}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Weakest stat callout */}
-      {weakestStat && (
-        <p className="text-[10px] text-amber-400/70 text-center mt-2">
-          {STAT_LABELS[weakestStat]} is your weakest attribute
-        </p>
-      )}
     </motion.div>
   );
 }

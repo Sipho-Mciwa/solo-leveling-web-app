@@ -16,7 +16,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-bg">
       <Header />
-      <main className="max-w-sm mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-4">
         <HunterCard />
         <SystemFeed />
       </main>

@@ -108,6 +108,19 @@ export function fetchStats() {
   return apiFetch<HunterStats>('/api/stats');
 }
 
+export function fetchHunterRecords() {
+  return apiFetch<HunterRecords>('/api/stats/records');
+}
+
+// Hunter character-sheet fields — see lib/hunterDetails.ts for the
+// placeholder fallback shown until these are set.
+export function updateHunterDetails(details: Partial<UserProfile>) {
+  return apiFetch<UserProfile>('/api/users/me/details', {
+    method: 'PATCH',
+    body: JSON.stringify(details),
+  });
+}
+
 // Weekend Boss
 export function generateWeekendBoss() {
   return apiFetch<{ generated: boolean; reason?: string; boss?: WeekendBoss }>(
@@ -118,6 +131,10 @@ export function generateWeekendBoss() {
 
 export function fetchWeekendBoss() {
   return apiFetch<{ boss: WeekendBoss | null }>('/api/boss/weekend/current');
+}
+
+export function fetchWeekendBossHistory() {
+  return apiFetch<WeekendBossHistoryResponse>('/api/boss/weekend/history');
 }
 
 export function completeWeekendBoss(bossId: string, value: number, notes: string) {
@@ -184,6 +201,16 @@ export interface UserProfile {
   rank: Rank;
   titles: string[];
   activeTitle: string | null;
+  // Hunter character-sheet fields — see lib/hunterDetails.ts for the
+  // placeholder values shown for whichever of these aren't set yet.
+  firstName?: string;
+  lastName?: string;
+  height?: string;
+  /** YYYY-MM-DD — age is derived from this, not stored directly. */
+  dateOfBirth?: string;
+  weight?: string;
+  sex?: string;
+  jobClass?: string;
 }
 
 export interface DailyQuest {
@@ -350,18 +377,32 @@ export interface WeekendBoss {
   status: WeekendBossStatus;
   submission: WeekendBossSubmission | null;
   claimedAt: string | null;
+  bonusXp?: number;
 }
 
 export interface WeekendBossCompleteResult {
   success: boolean;
   message: string;
   xpReward?: number;
+  bonusXp?: number;
 }
 
 export interface WeekendBossClaimResult {
   claimed: boolean;
   message?: string;
   xp?: XPResult;
+  bonusXp?: number;
+}
+
+export interface WeekendBossStats {
+  defeated: number;
+  missed: number;
+  currentStreak: number;
+}
+
+export interface WeekendBossHistoryResponse {
+  history: WeekendBoss[];
+  stats: WeekendBossStats;
 }
 
 export interface DailyChallenge {
@@ -417,6 +458,17 @@ export interface HunterStats {
   DISCIPLINE: number;
   INTELLECT:  number;
   delta:      StatDelta;
+}
+
+export interface HunterRecord {
+  value: number;
+  date: string;
+}
+
+export interface HunterRecords {
+  longestStreak: number | null;
+  mostRepsInADay: HunterRecord | null;
+  longestRun: HunterRecord | null;
 }
 
 export interface XPResult {

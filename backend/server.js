@@ -13,6 +13,7 @@ const bossRoutes       = require('./routes/bossRoutes');
 const challengeRoutes  = require('./routes/challengeRoutes');
 const statsRoutes      = require('./routes/statsRoutes');
 const aiRoutes         = require('./routes/aiRoutes');
+const workoutWebhookRoutes = require('./routes/workoutWebhookRoutes');
 const { startAICron }    = require('./cron/aiCron');
 const { logger }         = require('./utils/logger');
 const { apiLimiter }     = require('./middleware/rateLimit');
@@ -53,6 +54,7 @@ app.use('/api/boss',       bossRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/stats',      statsRoutes);
 app.use('/api/ai',         aiRoutes);
+app.use('/api/workouts/webhook', workoutWebhookRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 

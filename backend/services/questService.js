@@ -73,8 +73,7 @@ async function generateDailyQuests(userId) {
   //
   // Also queries the legacy `userId == null` shape for quest docs seeded
   // before the isGlobal flag existed, so pre-existing users aren't re-seeded
-  // with duplicate quest templates; seedDefaultQuests uses deterministic doc
-  // IDs, so once it runs it overwrites those legacy docs with isGlobal: true.
+  // with duplicate quest templates.
   const [globalSnap, legacyGlobalSnap, customSnap] = await Promise.all([
     db.collection('quests').where('isGlobal', '==', true).get(),
     db.collection('quests').where('userId', '==', null).get(),
@@ -85,29 +84,47 @@ async function generateDailyQuests(userId) {
     byId.set(doc.id, doc);
   }
 
+  // Dedupe non-custom templates that collide on title. Despite the doc-ID
+  // dedup above, stray duplicate template docs can and do exist in this
+  // collection (legacy `userId == null` docs seeded before deterministic
+  // IDs existed, never merged into the canonical `default_*` doc) — without
+  // this, each one produces its own daily quest for the same habit. Custom
+  // quests are never deduped, since a same-named custom quest is a
+  // deliberate user creation. `default_*` IDs are preferred as the survivor
+  // since that's the canonical seedDefaultQuests naming scheme.
+  const survivorByTitle = new Map();
+  const customDocs = [];
+  for (const doc of byId.values()) {
+    const data = doc.data();
+    if (data.isCustom) { customDocs.push(doc); continue; }
+    const key = (data.title || '').trim().toLowerCase();
+    const existing = survivorByTitle.get(key);
+    if (!existing || (doc.id.startsWith('default_') && !existing.id.startsWith('default_'))) {
+      survivorByTitle.set(key, doc);
+    }
+  }
+
   // If no quests exist for user, seed defaults first
-  let questDocs = [...byId.values()];
+  let questDocs = [...survivorByTitle.values(), ...customDocs];
   if (questDocs.length === 0) {
     questDocs = await seedDefaultQuests(userId);
   }
 
-  // Fetch user profile for streak context
-  const userSnap = await db.collection('users').doc(userId).get();
-  const userData = userSnap.exists ? userSnap.data() : {};
-
   // Compute difficulty scaling for all quests in one batched call
-  const scalingResults = await applyDifficultyScaling(
-    userId,
-    questDocs,
-    userData.streakCount || 0,
-    userData.lastActiveDate || null
-  );
+  const scalingResults = await applyDifficultyScaling(userId, questDocs);
   const scalingByQuestId = Object.fromEntries(scalingResults.map((s) => [s.questId, s]));
 
+  // Deterministic per-user/date/quest doc ID — the existence check above and
+  // this write aren't atomic, so concurrent calls (e.g. onAuthStateChanged
+  // firing more than once on login) can both pass the check before either
+  // commits. With a random ID that produces duplicate quest sets; with a
+  // deterministic ID the second write just overwrites the first with
+  // identical data (both compute the same scaling from the same inputs), so
+  // the race is harmless instead of duplicating quests.
   const batch = db.batch();
   for (const qDoc of questDocs) {
     const scaling = scalingByQuestId[qDoc.id];
-    const ref = db.collection('dailyQuests').doc();
+    const ref = db.collection('dailyQuests').doc(`${userId}_${date}_${qDoc.id}`);
     batch.set(ref, {
       userId,
       questId: qDoc.id,

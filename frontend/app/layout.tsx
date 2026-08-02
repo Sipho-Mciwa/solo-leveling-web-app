@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { Rajdhani } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
+import { WeekendBossProvider } from '@/context/WeekendBossContext';
+import { PenaltyProvider } from '@/context/PenaltyContext';
+import PenaltyLockoutModal from '@/components/PenaltyLockoutModal';
 
 const rajdhani = Rajdhani({
   subsets: ['latin'],
@@ -26,7 +29,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={rajdhani.variable}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <WeekendBossProvider>
+            <PenaltyProvider>
+              {children}
+              <PenaltyLockoutModal />
+            </PenaltyProvider>
+          </WeekendBossProvider>
+        </AuthProvider>
       </body>
     </html>
   );

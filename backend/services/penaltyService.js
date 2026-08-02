@@ -1,5 +1,5 @@
 const { db } = require('../config/firebase');
-const { addXp } = require('./xpService');
+const { computeXpGain } = require('./xpService');
 const { AppError } = require('../utils/AppError');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -81,19 +81,43 @@ async function generatePenalty(userId) {
     .get();
 
   for (const doc of staleSnap.docs) {
-    const p = doc.data();
-    if (p.date < today) {
-      await addXp(userId, -p.xpPenalty);
-      await doc.ref.update({ expired: true });
+    if (doc.data().date < today) {
+      await expireStalePenalty(doc.ref, userId);
     }
   }
 
   // --- Generate today's penalty ---
+  // Deterministic ID: the "already generated?" check above and this write
+  // aren't atomic, so concurrent calls (e.g. onAuthStateChanged firing twice
+  // on login) can both pass the check before either commits. A random ID
+  // would create two penalty docs for the same day; this way the second
+  // write just overwrites the first with identical data.
   const penaltyData = buildPenaltyData(userId, user.level || 1);
-  const ref = db.collection('penaltyQuests').doc();
+  const ref = db.collection('penaltyQuests').doc(`${userId}_${today}`);
   await ref.set(penaltyData);
 
   return { generated: true, penalty: { id: ref.id, ...penaltyData } };
+}
+
+/**
+ * Atomically re-checks and expires a single stale penalty. Re-reading
+ * `expired` inside the transaction (rather than trusting the caller's
+ * earlier query snapshot) means that if two generatePenalty calls race on
+ * the same stale doc, whichever transaction commits first flips `expired`
+ * to true and the other sees that and no-ops — the XP deduction can't be
+ * double-applied.
+ */
+async function expireStalePenalty(ref, userId) {
+  const userRef = db.collection('users').doc(userId);
+
+  await db.runTransaction(async (tx) => {
+    const [snap, userSnap] = await Promise.all([tx.get(ref), tx.get(userRef)]);
+    if (!snap.exists || snap.data().expired || !userSnap.exists) return;
+
+    const { updates } = computeXpGain(userSnap.data(), -snap.data().xpPenalty);
+    tx.update(userRef, updates);
+    tx.update(ref, { expired: true });
+  });
 }
 
 /** Returns the active (non-expired) penalty quest for today, if any. */

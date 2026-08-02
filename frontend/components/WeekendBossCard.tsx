@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { TONE_STYLES } from '@/utils/systemStyles';
+import { projectXpGain } from '@/lib/xpUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,16 +46,16 @@ function pad(n: number) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WeekendBossCard({ boss, onUpdate }: Props) {
-  const { refreshProfile } = useAuth();
+  const { userProfile, refreshProfile } = useAuth();
 
   const [status,    setStatus]    = useState<WeekendBossStatus>(boss.status);
   const [isUrgent,  setIsUrgent]  = useState(() => computeTimeLeft(boss.endTime).total < 3_600_000);
-  const [inputVal,  setInputVal]  = useState('');
   const [notes,     setNotes]     = useState('');
   const [error,     setError]     = useState<string | null>(null);
   const [submitting,setSubmitting]= useState(false);
   const [claiming,  setClaiming]  = useState(false);
   const [claimXP,   setClaimXP]   = useState<XPResult | null>(null);
+  const [bonusXp,   setBonusXp]   = useState(0);
 
   const [showFlash, setShowFlash] = useState(false);
 
@@ -88,20 +89,18 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
     return () => timeouts.forEach(clearTimeout);
   }, [boss.endTime, status]);
 
-  // ── Submit completion ────────────────────────────────────────────────────────
-  async function handleSubmit() {
+  // ── Submit completion — meets the minimum exactly, so no overperformance
+  // bonus applies (that mechanic needs a value beyond the minimum, and
+  // there's no input to provide one anymore) ──────────────────────────────
+  async function handleComplete() {
     setError(null);
-    const num = parseFloat(inputVal);
-    if (isNaN(num) || num <= 0) {
-      setError('Enter a valid number.');
-      return;
-    }
     setSubmitting(true);
     try {
-      const result = await completeWeekendBoss(boss.id, num, notes);
+      const result = await completeWeekendBoss(boss.id, boss.requirements.minValue, notes);
       if (result.success) {
         const updated = { ...boss, status: 'completed' as WeekendBossStatus };
         setStatus('completed');
+        setBonusXp(result.bonusXp ?? 0);
         onUpdate(updated);
       } else {
         setError(result.message);
@@ -120,6 +119,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
       const result = await claimWeekendBossReward(boss.id);
       if (result.claimed && result.xp) {
         setClaimXP(result.xp);
+        setBonusXp(result.bonusXp ?? 0);
         setStatus('claimed');
         onUpdate({ ...boss, status: 'claimed' });
         refreshProfile();
@@ -231,7 +231,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
         </p>
       </div>
 
-      {/* ── Input section (active only) ─────────────────────────────────────── */}
+      {/* ── Complete section (active only) ──────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {status === 'active' && (
           <motion.div
@@ -241,19 +241,6 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.25 }}
           >
-            <p className="text-[10px] text-muted uppercase tracking-widest mb-2">Log your result</p>
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="number"
-                min="0"
-                step={boss.requirements.type === 'run' ? '0.1' : '1'}
-                placeholder={boss.requirements.type === 'run' ? 'km covered' : 'reps completed'}
-                value={inputVal}
-                onChange={(e) => { setInputVal(e.target.value); setError(null); }}
-                className="flex-1 bg-surface border border-border text-white text-sm rounded-xl px-3 py-2.5 outline-none focus:border-red-500/60 placeholder:text-muted/50"
-              />
-              <span className="text-xs text-muted shrink-0">{boss.requirements.unit}</span>
-            </div>
             <textarea
               placeholder="Optional notes (form, time, conditions...)"
               value={notes}
@@ -276,12 +263,12 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             </AnimatePresence>
 
             <motion.button
-              onClick={handleSubmit}
-              disabled={submitting || !inputVal}
+              onClick={handleComplete}
+              disabled={submitting}
               whileTap={{ scale: 0.97 }}
               className="w-full py-3 rounded-xl bg-red-600/80 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold tracking-wide transition-colors"
             >
-              {submitting ? 'Submitting...' : 'Submit Result'}
+              {submitting ? 'Submitting...' : 'Complete'}
             </motion.button>
           </motion.div>
         )}
@@ -298,11 +285,26 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
           >
             <p className="text-sm text-green-400 font-semibold mb-1">Entity Neutralized. Proceed to claim reward.</p>
             {boss.submission && (
-              <p className="text-xs text-muted mb-4">
-                Submitted: {boss.submission.value} {boss.requirements.unit}
-                {boss.submission.notes && ` · "${boss.submission.notes}"`}
-              </p>
+              <div className="mb-4">
+                <p className="text-xs text-muted">
+                  Submitted: {boss.submission.value} {boss.requirements.unit}
+                  {boss.submission.notes && ` · "${boss.submission.notes}"`}
+                </p>
+                {bonusXp > 0 && (
+                  <p className="text-xs text-yellow-400 font-medium mt-1">
+                    Overperformance bonus: +{bonusXp} XP
+                  </p>
+                )}
+              </div>
             )}
+            {userProfile && (() => {
+              const preview = projectXpGain(userProfile.xp, userProfile.level, boss.xpReward + bonusXp);
+              return preview.leveledUp ? (
+                <p className="text-xs text-accent-light font-semibold mb-3">
+                  Claiming will take you to Level {preview.level}!
+                </p>
+              ) : null;
+            })()}
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -323,7 +325,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
               transition={{ repeat: Infinity, duration: 2 }}
               className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black text-sm font-bold tracking-wide transition-colors"
             >
-              {claiming ? 'Claiming...' : `Claim ${boss.xpReward} XP`}
+              {claiming ? 'Claiming...' : `Claim ${boss.xpReward + bonusXp} XP`}
             </motion.button>
           </motion.div>
         )}
@@ -340,7 +342,7 @@ export default function WeekendBossCard({ boss, onUpdate }: Props) {
             <p className="text-lg font-bold text-yellow-400">Protocol Complete. Reward Disbursed.</p>
             {claimXP ? (
               <p className="text-xs text-muted mt-1">
-                +{claimXP.xpGained} XP · Level {claimXP.level}
+                +{claimXP.xpGained} XP{bonusXp > 0 && ` (incl. +${bonusXp} bonus)`} · Level {claimXP.level}
                 {claimXP.leveledUp && (
                   <span className="ml-2 text-accent-light font-semibold">Level Up!</span>
                 )}

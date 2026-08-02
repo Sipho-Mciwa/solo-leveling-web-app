@@ -31,12 +31,15 @@ function nDaysAgo(n) {
 // ─── Core functions ───────────────────────────────────────────────────────────
 
 /**
- * Calculate per-quest performance scores using a single Firestore query.
- * Returns a map of { questId → completionRate (0.0–1.0) }.
- * Defaults to NEUTRAL_PERFORMANCE (0.5) for quests with no history.
+ * Count each quest's consecutive completed-day streak, walking backward
+ * from yesterday and stopping at the first day with no doc or
+ * `completed !== true`. Bounded to STREAK_LOOKBACK_DAYS to keep the
+ * Firestore query finite.
+ *
+ * Returns a map of { questId → streak (0 if no qualifying history) }.
  */
-async function calculatePerformance(userId, questIds) {
-  const startDate = nDaysAgo(7);
+async function calculatePerQuestStreaks(userId, questIds) {
+  const startDate = nDaysAgo(STREAK_LOOKBACK_DAYS);
   const endDate = nDaysAgo(1); // exclude today (not yet completed)
 
   const snapshot = await db
@@ -46,21 +49,26 @@ async function calculatePerformance(userId, questIds) {
     .where('date', '<=', endDate)
     .get();
 
-  // Tally completions per questId
-  const tally = {};
+  const completedByDateByQuest = {};
   for (const doc of snapshot.docs) {
     const dq = doc.data();
     if (!questIds.includes(dq.questId)) continue;
-    if (!tally[dq.questId]) tally[dq.questId] = { total: 0, completed: 0 };
-    tally[dq.questId].total++;
-    if (dq.completed) tally[dq.questId].completed++;
+    if (!completedByDateByQuest[dq.questId]) completedByDateByQuest[dq.questId] = new Map();
+    completedByDateByQuest[dq.questId].set(dq.date, dq.completed === true);
   }
 
-  // Return completion rate per quest (default to neutral if no data)
   const result = {};
   for (const id of questIds) {
-    const t = tally[id];
-    result[id] = t && t.total > 0 ? t.completed / t.total : NEUTRAL_PERFORMANCE;
+    const completedByDate = completedByDateByQuest[id] || new Map();
+    let streak = 0;
+    for (let n = 1; n <= STREAK_LOOKBACK_DAYS; n++) {
+      if (completedByDate.get(nDaysAgo(n)) === true) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    result[id] = streak;
   }
   return result;
 }
@@ -122,7 +130,7 @@ async function applyDifficultyScaling(userId, questDocs, streakCount, lastActive
 }
 
 module.exports = {
-  calculatePerformance,
+  calculatePerQuestStreaks,
   calculateDifficultyMultiplier,
   generateScaledTarget,
   applyDifficultyScaling,

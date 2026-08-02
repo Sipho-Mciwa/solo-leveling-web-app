@@ -95,6 +95,20 @@ describe('calculatePerQuestStreaks', () => {
   });
 });
 
+describe('generateScaledTarget', () => {
+  test('rounds to a whole number by default (reps-based quests)', () => {
+    const { generateScaledTarget } = require('../services/difficultyService');
+    expect(generateScaledTarget(20, 1.05)).toBe(21);
+    expect(generateScaledTarget(20, 1.1)).toBe(22);
+  });
+
+  test('rounds to 1 decimal place when requested (distance-based quests)', () => {
+    const { generateScaledTarget } = require('../services/difficultyService');
+    expect(generateScaledTarget(5, 1.05, 1)).toBe(5.3);
+    expect(generateScaledTarget(5, 1.1, 1)).toBe(5.5);
+  });
+});
+
 describe('applyDifficultyScaling', () => {
   function fakeQuestDoc(id, targetValue) {
     return { id, data: () => ({ targetValue }) };
@@ -129,5 +143,30 @@ describe('applyDifficultyScaling', () => {
     const results = await applyDifficultyScaling(userId, [fakeQuestDoc('default_push_ups', 20)]);
     expect(results[0].currentTarget).toBe(21); // round(20 * 1.05)
     expect(results[0].difficultyMultiplier).toBe(1.05);
+  });
+
+  test('scales running (distance-based) targets in fine 1-decimal-place steps', async () => {
+    const { applyDifficultyScaling } = require('../services/difficultyService');
+    const userId = 'user-1';
+    for (let n = 1; n <= 3; n++) {
+      await mockFakeDb.collection('dailyQuests').add({
+        userId, questId: 'default_running', date: daysAgoStr(n), completed: true,
+      });
+    }
+    const results = await applyDifficultyScaling(userId, [fakeQuestDoc('default_running', 5)]);
+    expect(results[0].currentTarget).toBe(5.3); // round(5 * 1.05 * 10) / 10
+    expect(results[0].difficultyMultiplier).toBe(1.05);
+  });
+
+  test('reps-based quests are unaffected by the decimal-precision change', async () => {
+    const { applyDifficultyScaling } = require('../services/difficultyService');
+    const userId = 'user-1';
+    for (let n = 1; n <= 3; n++) {
+      await mockFakeDb.collection('dailyQuests').add({
+        userId, questId: 'default_push_ups', date: daysAgoStr(n), completed: true,
+      });
+    }
+    const results = await applyDifficultyScaling(userId, [fakeQuestDoc('default_push_ups', 20)]);
+    expect(results[0].currentTarget).toBe(21);
   });
 });

@@ -10,17 +10,6 @@ const STREAK_LOOKBACK_DAYS = 60; // bounds the Firestore query in calculatePerQu
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function daysBetween(dateStrA, dateStrB) {
-  const msPerDay = 86400000;
-  return Math.round(
-    (new Date(dateStrB + 'T00:00:00') - new Date(dateStrA + 'T00:00:00')) / msPerDay
-  );
-}
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-
 function nDaysAgo(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -88,11 +77,12 @@ function calculateDifficultyMultiplier(streak) {
 }
 
 /**
- * Scale a base target by a multiplier.
- * Always returns a whole number ≥ 1.
+ * Scale a base target by a multiplier, rounding to the given decimal precision.
+ * Always returns a value >= 1.
  */
-function generateScaledTarget(baseTarget, multiplier) {
-  return Math.max(1, Math.round(baseTarget * multiplier));
+function generateScaledTarget(baseTarget, multiplier, decimalPlaces = 0) {
+  const factor = 10 ** decimalPlaces;
+  return Math.max(1, Math.round(baseTarget * multiplier * factor) / factor);
 }
 
 /**
@@ -110,7 +100,8 @@ async function applyDifficultyScaling(userId, questDocs) {
     const baseTarget = data.targetValue;
     const streak = streaks[qDoc.id] ?? 0;
     const multiplier = calculateDifficultyMultiplier(streak);
-    const currentTarget = generateScaledTarget(baseTarget, multiplier);
+    const decimalPlaces = qDoc.id === 'default_running' ? 1 : 0;
+    const currentTarget = generateScaledTarget(baseTarget, multiplier, decimalPlaces);
 
     return {
       questId: qDoc.id,

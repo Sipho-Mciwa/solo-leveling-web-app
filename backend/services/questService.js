@@ -322,4 +322,20 @@ async function getQuestHistory(userId, month) {
   return { quests };
 }
 
-module.exports = { getTodayQuests, generateDailyQuests, updateQuestProgress, getQuestHistory };
+/**
+ * Returns true only if the user has at least one dailyQuests doc for the
+ * given date and every one of them is completed. An empty result (no
+ * quests were even generated that day) counts as not fully completed.
+ */
+async function wereAllQuestsCompleted(userId, date) {
+  const snap = await db
+    .collection('dailyQuests')
+    .where('userId', '==', userId)
+    .where('date', '==', date)
+    .get();
+
+  if (snap.empty) return false;
+  return snap.docs.every((d) => d.data().completed === true);
+}
+
+module.exports = { getTodayQuests, generateDailyQuests, updateQuestProgress, getQuestHistory, wereAllQuestsCompleted };

@@ -2,11 +2,11 @@ const { db } = require('../config/firebase');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MULTIPLIER_MIN = 0.7;
+const MULTIPLIER_MIN = 1.0;
 const MULTIPLIER_MAX = 1.5;
-const MOMENTUM_BONUS_PER_3_DAYS = 0.05; // +5% per 3-day streak increment
-const MOMENTUM_BONUS_CAP = 0.15;         // max +15% from momentum (streak 9+)
-const NEUTRAL_PERFORMANCE = 0.5;         // used when no history exists
+const STEP_PER_QUALIFYING_INTERVAL = 0.05; // +5% per 3-day per-quest streak
+const QUALIFYING_INTERVAL_DAYS = 3;
+const STREAK_LOOKBACK_DAYS = 60; // bounds the Firestore query in calculatePerQuestStreaks
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -65,28 +65,17 @@ async function calculatePerformance(userId, questIds) {
 }
 
 /**
- * Calculate the difficulty multiplier from performance + streak context.
+ * Calculate the difficulty multiplier from a per-quest consecutive-day streak.
  *
  * Formula:
- *   base = 1 + (performanceScore - 0.5)   → range [0.5, 1.5]
- *   + momentum bonus (every 3-day streak = +5%, capped at +15%)
- *   → clamp to [MULTIPLIER_MIN, MULTIPLIER_MAX]
+ *   multiplier = 1 + floor(streak / 3) * 0.05
+ *   clamped to [MULTIPLIER_MIN, MULTIPLIER_MAX]
  *
- * Failure penalty: if missedDays >= 2, collapse to minimum and skip momentum.
+ * A streak of 0-2 stays at base (1.0x) — no single-day spikes. Reaching the
+ * 1.5x cap requires a 30-day unbroken streak.
  */
-function calculateDifficultyMultiplier(performanceScore, streakCount, missedDays) {
-  // Hard reset on failure
-  if (missedDays >= 2) return MULTIPLIER_MIN;
-
-  let multiplier = 1 + (performanceScore - 0.5);
-
-  // Momentum bonus
-  const momentumBonus = Math.min(
-    Math.floor(streakCount / 3) * MOMENTUM_BONUS_PER_3_DAYS,
-    MOMENTUM_BONUS_CAP
-  );
-  multiplier += momentumBonus;
-
+function calculateDifficultyMultiplier(streak) {
+  const multiplier = 1 + Math.floor(streak / QUALIFYING_INTERVAL_DAYS) * STEP_PER_QUALIFYING_INTERVAL;
   return Math.min(MULTIPLIER_MAX, Math.max(MULTIPLIER_MIN, multiplier));
 }
 

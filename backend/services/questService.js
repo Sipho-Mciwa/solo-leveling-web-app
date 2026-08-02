@@ -110,17 +110,8 @@ async function generateDailyQuests(userId) {
     questDocs = await seedDefaultQuests(userId);
   }
 
-  // Fetch user profile for streak context
-  const userSnap = await db.collection('users').doc(userId).get();
-  const userData = userSnap.exists ? userSnap.data() : {};
-
   // Compute difficulty scaling for all quests in one batched call
-  const scalingResults = await applyDifficultyScaling(
-    userId,
-    questDocs,
-    userData.streakCount || 0,
-    userData.lastActiveDate || null
-  );
+  const scalingResults = await applyDifficultyScaling(userId, questDocs);
   const scalingByQuestId = Object.fromEntries(scalingResults.map((s) => [s.questId, s]));
 
   // Deterministic per-user/date/quest doc ID — the existence check above and

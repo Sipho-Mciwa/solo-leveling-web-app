@@ -1,6 +1,10 @@
 const { db } = require('../config/firebase');
 const { getMemory } = require('./aiMemory.service');
 const { VOICE_INSTRUCTION, FALLBACKS, buildMemoryBlock } = require('./systemVoice');
+const { computeXpGain } = require('./xpService');
+const { evaluateTitles } = require('./titleService');
+const { updateUserRank } = require('./rankService');
+const { AppError } = require('../utils/AppError');
 const { logger } = require('../utils/logger');
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -213,4 +217,75 @@ async function generateChallenges(userId) {
   return challenges;
 }
 
-module.exports = { generateInsight, generateChallenges };
+/**
+ * Moves a cached suggestion from 'suggested' to 'accepted'.
+ * Idempotent: accepting an already-accepted or completed suggestion just
+ * returns its current status without modifying anything.
+ */
+async function acceptChallenge(userId, index) {
+  const cached = await getCachedAI(userId);
+  if (!cached?.challenges?.[index]) {
+    throw new AppError('Suggestion not found', 404);
+  }
+
+  const challenge = cached.challenges[index];
+  if (challenge.status !== 'suggested') {
+    return { status: challenge.status };
+  }
+
+  const challenges = cached.challenges.map((c, i) =>
+    i === index ? { ...c, status: 'accepted' } : c
+  );
+  await setCachedAI(userId, cached.insight, challenges);
+
+  return { status: 'accepted' };
+}
+
+/**
+ * Completes an accepted suggestion: awards its XP to the user and marks it
+ * 'completed', both inside one Firestore transaction (same shape as
+ * challengeService.completeChallenge). Fires title/rank re-evaluation
+ * afterward since the XP gain can cross a rank or title threshold.
+ */
+async function completeAISuggestion(userId, index) {
+  const aiRef = db.collection('aiCache').doc(userId);
+  const userRef = db.collection('users').doc(userId);
+
+  const result = await db.runTransaction(async (tx) => {
+    const [aiSnap, userSnap] = await Promise.all([tx.get(aiRef), tx.get(userRef)]);
+
+    if (!aiSnap.exists) throw new AppError('Suggestions not found', 404);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
+
+    const data = aiSnap.data();
+    if (data.date !== todayStr()) throw new AppError('Suggestions not found', 404);
+
+    const challenge = data.challenges?.[index];
+    if (!challenge) throw new AppError('Suggestion not found', 404);
+
+    if (challenge.status === 'completed') return { alreadyCompleted: true };
+    if (challenge.status !== 'accepted') {
+      throw new AppError('Suggestion must be accepted before it can be completed', 409);
+    }
+
+    const updatedChallenges = data.challenges.map((c, i) =>
+      i === index ? { ...c, status: 'completed' } : c
+    );
+
+    const { updates, result: xpResult } = computeXpGain(userSnap.data(), challenge.xpReward);
+
+    tx.update(aiRef, { challenges: updatedChallenges });
+    tx.update(userRef, updates);
+
+    return { completed: true, xp: xpResult };
+  });
+
+  if (result.completed) {
+    evaluateTitles(userId).catch((e) => logger.error({ err: e, userId }, 'Title evaluation failed'));
+    updateUserRank(userId).catch((e) => logger.error({ err: e, userId }, 'Rank update failed'));
+  }
+
+  return result;
+}
+
+module.exports = { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion };

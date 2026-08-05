@@ -1,7 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
 const router = express.Router();
-const { generateInsight, generateChallenges } = require('../services/ai.service');
+const { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion } = require('../services/ai.service');
 const { getMemory, updateMemory, generateWeeklySummary } = require('../services/aiMemory.service');
 const { generateSystemEvents, markEventsSeen, triggerNarrativeEvent } = require('../services/aiEvents.service');
 const { authenticate } = require('../middleware/authenticate');
@@ -47,6 +47,26 @@ router.post('/challenges', async (req, res) => {
     });
   }
 });
+
+// PATCH /api/ai/challenges/:index/accept
+router.patch('/challenges/:index/accept', asyncHandler(async (req, res) => {
+  const index = Number(req.params.index);
+  if (!Number.isInteger(index) || index < 0) {
+    return res.status(400).json({ error: 'index must be a non-negative integer' });
+  }
+  const result = await acceptChallenge(req.userId, index);
+  res.json(result);
+}));
+
+// PATCH /api/ai/challenges/:index/complete
+router.patch('/challenges/:index/complete', asyncHandler(async (req, res) => {
+  const index = Number(req.params.index);
+  if (!Number.isInteger(index) || index < 0) {
+    return res.status(400).json({ error: 'index must be a non-negative integer' });
+  }
+  const result = await completeAISuggestion(req.userId, index);
+  res.json(result);
+}));
 
 // GET /api/ai/memory
 router.get('/memory', asyncHandler(async (req, res) => {

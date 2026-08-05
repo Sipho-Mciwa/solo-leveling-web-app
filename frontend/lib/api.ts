@@ -159,6 +159,17 @@ export function fetchAIChallenges() {
   return apiFetch<{ challenges: AISuggestion[] }>('/api/ai/challenges', { method: 'POST' });
 }
 
+export function acceptAISuggestion(index: number) {
+  return apiFetch<{ status: string }>(`/api/ai/challenges/${index}/accept`, { method: 'PATCH' });
+}
+
+export function completeAISuggestion(index: number) {
+  return apiFetch<{ completed?: boolean; alreadyCompleted?: boolean; xp?: XPResult }>(
+    `/api/ai/challenges/${index}/complete`,
+    { method: 'PATCH' }
+  );
+}
+
 // AI System Events
 export function fetchSystemEvents() {
   return apiFetch<SystemEventsResponse>('/api/ai/events');
@@ -483,6 +494,7 @@ export interface AISuggestion {
   title: string;
   description: string;
   xpReward: number;
+  status: 'suggested' | 'accepted' | 'completed';
 }
 
 export type SystemEventType = 'system' | 'warning' | 'alert' | 'narrative' | 'special';

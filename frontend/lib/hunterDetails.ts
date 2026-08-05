@@ -78,7 +78,7 @@ export function getHunterDetails(
   const [fallbackFirst, fallbackLast] = splitDisplayName(displayName);
 
   const hasRealDetails = Boolean(
-    profile.height || profile.dateOfBirth || profile.weight || profile.sex || profile.jobClass
+    profile.height || profile.dateOfBirth || profile.weight || profile.sex || profile.jobClass || profile.hunterId
   );
 
   return {
@@ -89,7 +89,7 @@ export function getHunterDetails(
     weight:    profile.weight    ?? `${inRange(rand, 55, 95)} kg`,
     sex:       profile.sex       ?? pick(rand, SEXES),
     jobClass:  profile.jobClass  ?? pick(rand, JOB_CLASSES),
-    hunterId:  `HTR-${(seedFromString(userId) % 1_000_000).toString().padStart(6, '0')}`,
+    hunterId:  profile.hunterId  ?? `HTR-${(seedFromString(userId) % 1_000_000).toString().padStart(6, '0')}`,
     isPlaceholder: !hasRealDetails,
   };
 }

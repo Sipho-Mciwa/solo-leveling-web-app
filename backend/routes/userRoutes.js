@@ -42,6 +42,7 @@ const hunterDetailsSchema = z.object({
   weight:      z.string().trim().max(20).optional(),
   sex:         z.string().trim().max(20).optional(),
   jobClass:    z.string().trim().max(30).optional(),
+  hunterId:    z.string().trim().max(20).optional(),
 });
 
 // PATCH /api/users/me/details — set/update hunter character-sheet fields.

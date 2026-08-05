@@ -224,6 +224,7 @@ export interface UserProfile {
   weight?: string;
   sex?: string;
   jobClass?: string;
+  hunterId?: string;
 }
 
 export interface DailyQuest {

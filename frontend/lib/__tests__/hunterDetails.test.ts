@@ -86,4 +86,12 @@ describe('getHunterDetails', () => {
     const details = getHunterDetails('user-1', 'Sipho Mciwa', baseProfile());
     expect(details.hunterId).toMatch(/^HTR-\d{6}$/);
   });
+
+  test('prefers a real profile hunterId over the derived placeholder', () => {
+    const details = getHunterDetails('user-1', 'Sipho Mciwa', baseProfile({
+      hunterId: 'HTR-171299',
+    }));
+    expect(details.hunterId).toBe('HTR-171299');
+    expect(details.isPlaceholder).toBe(false);
+  });
 });

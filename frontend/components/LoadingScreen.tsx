@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 const MESSAGES = [
   'Initializing hunter profile...',
@@ -50,7 +51,14 @@ export default function LoadingScreen() {
         className="mb-12 text-center"
       >
         <p className="text-[9px] tracking-[0.5em] uppercase text-muted mb-3">System</p>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Solo Leveling</h1>
+        <Image
+          src="/solo-leveling-logo.png"
+          alt="Solo Leveling"
+          width={943}
+          height={732}
+          priority
+          className="w-60 h-auto mx-auto"
+        />
       </motion.div>
 
       {/* Progress bar */}

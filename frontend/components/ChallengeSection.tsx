@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
-import { DailyChallenge, AISuggestion, fetchAIChallenges } from '@/lib/api';
+import { DailyChallenge, AISuggestion, fetchAIChallenges, acceptAISuggestion, completeAISuggestion } from '@/lib/api';
 
 // ─── Stagger variants ─────────────────────────────────────────────────────────
 
@@ -31,6 +31,18 @@ export default function ChallengeSection() {
       .then((r) => setAiSuggestions(r.challenges))
       .catch(() => {});
   }, [firebaseUser]);
+
+  function markAccepted(index: number) {
+    setAiSuggestions((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, status: 'accepted' } : s))
+    );
+  }
+
+  function markCompleted(index: number) {
+    setAiSuggestions((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, status: 'completed' } : s))
+    );
+  }
 
   if (loading) {
     return (
@@ -125,21 +137,13 @@ export default function ChallengeSection() {
             </div>
             <div className="space-y-2">
               {aiSuggestions.map((s, i) => (
-                <div
+                <SuggestionCard
                   key={i}
-                  className="flex items-start gap-3 px-4 py-3 rounded-xl border border-accent/20 bg-accent/5"
-                >
-                  <div className="w-5 h-5 rounded-full border-2 border-accent/40 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Sparkles size={14} className="text-accent-light/60" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white">{s.title}</p>
-                    <p className="text-[11px] text-muted mt-0.5 leading-snug">{s.description}</p>
-                  </div>
-                  <span className="text-xs font-medium text-accent-light/70 shrink-0">
-                    +{s.xpReward} XP
-                  </span>
-                </div>
+                  suggestion={s}
+                  index={i}
+                  onAccepted={markAccepted}
+                  onCompleted={markCompleted}
+                />
               ))}
             </div>
           </motion.div>
@@ -222,5 +226,82 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
         +{challenge.xpReward} XP
       </span>
     </motion.button>
+  );
+}
+
+// ─── AI suggestion card ─────────────────────────────────────────────────────
+
+function SuggestionCard({
+  suggestion,
+  index,
+  onAccepted,
+  onCompleted,
+}: {
+  suggestion: AISuggestion;
+  index: number;
+  onAccepted: (index: number) => void;
+  onCompleted: (index: number) => void;
+}) {
+  const { refreshProfile } = useAuth();
+  const isAccepted = suggestion.status === 'accepted';
+  const isCompleted = suggestion.status === 'completed';
+
+  async function handleClick() {
+    if (suggestion.status === 'suggested') {
+      await acceptAISuggestion(index);
+      onAccepted(index);
+    } else if (isAccepted) {
+      await completeAISuggestion(index);
+      onCompleted(index);
+      await refreshProfile();
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isCompleted}
+      className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+        isCompleted
+          ? 'border-border/30 bg-surface/30 cursor-default'
+          : isAccepted
+          ? 'border-accent/40 bg-accent/10 hover:bg-accent/15 cursor-pointer'
+          : 'border-accent/20 bg-accent/5 hover:bg-accent/10 cursor-pointer'
+      }`}
+    >
+      <div
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+          isCompleted
+            ? 'border-accent bg-accent'
+            : isAccepted
+            ? 'border-accent-light bg-accent/30'
+            : 'border-accent/40'
+        }`}
+      >
+        {isCompleted ? (
+          <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ) : (
+          <Sparkles size={14} className={isAccepted ? 'text-accent-light' : 'text-accent-light/60'} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold ${isCompleted ? 'text-muted line-through' : 'text-white'}`}>
+          {suggestion.title}
+        </p>
+        <p className="text-[11px] text-muted mt-0.5 leading-snug">{suggestion.description}</p>
+        {isAccepted && (
+          <p className="text-[10px] text-accent-light/70 mt-1 uppercase tracking-wide">Tap to complete</p>
+        )}
+      </div>
+      <span className={`text-xs font-medium shrink-0 ${isCompleted ? 'text-muted' : 'text-accent-light/70'}`}>
+        +{suggestion.xpReward} XP
+      </span>
+    </button>
   );
 }

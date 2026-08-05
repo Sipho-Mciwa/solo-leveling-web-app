@@ -6,6 +6,10 @@ const refreshProfile = vi.fn().mockResolvedValue(undefined);
 const acceptAISuggestion = vi.fn().mockResolvedValue({ status: 'accepted' });
 const completeAISuggestion = vi.fn().mockResolvedValue({ completed: true, xp: { xp: 20, level: 1, xpGained: 20, leveledUp: false, previousLevel: 1 } });
 
+// Stable object reference so ChallengeSection's `useEffect(..., [firebaseUser])`
+// doesn't refire (and re-fetch/reset suggestions) on every render.
+const firebaseUser = { uid: 'u1' };
+
 vi.mock('@/context/ChallengeContext', () => ({
   useChallenges: () => ({
     challengeDoc: { id: 'doc-1', challenges: [], bonusAwarded: false },
@@ -15,7 +19,7 @@ vi.mock('@/context/ChallengeContext', () => ({
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
-    firebaseUser: { uid: 'u1' },
+    firebaseUser,
     refreshProfile,
   }),
 }));

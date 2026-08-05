@@ -1,14 +1,13 @@
 'use client';
 
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { HistoryRow } from '@/lib/api';
@@ -17,7 +16,8 @@ import { HistoryRow } from '@/lib/api';
 
 interface DayPoint {
   day: number;
-  rate: number;       // 0–100 completion %, or 0 when no quests generated
+  rate: number;              // 0–100 completion %, or 0 when no quests generated
+  value: number | null;      // same as rate, but null (not 0) when no data — keeps the line from dropping to the floor
   completed: number;
   total: number;
   isToday: boolean;
@@ -50,30 +50,30 @@ function buildData(rows: HistoryRow[], month: string): DayPoint[] {
       }
     }
 
+    const hasData = total > 0;
+    const rate = hasData ? Math.round((completed / total) * 100) : 0;
     return {
       day,
-      rate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      rate,
+      // The plotted value: null for no-data days so the line/area stops
+      // rather than dropping to 0 and flattening across the rest of the month.
+      value: hasData ? rate : null,
       completed,
       total,
       isToday: dateKey === todayStr,
-      hasData: total > 0,
+      hasData,
     };
   });
 }
 
-// ─── Bar color ────────────────────────────────────────────────────────────────
+// ─── Status dot color ─────────────────────────────────────────────────────────
 
-function barFill(d: DayPoint): string {
-  if (!d.hasData) return '#1c1c1c';
-  if (d.isToday) return '#a78bfa';
+function dotFill(d: DayPoint): string {
+  if (d.isToday)      return '#a78bfa';
   if (d.rate === 100) return '#4ade80';
   if (d.rate >= 60)   return '#7c3aed';
   if (d.rate > 0)     return '#f59e0b';
-  return '#3f1212';  // deep red tint for 0/total days
-}
-
-function barOpacity(d: DayPoint): number {
-  return d.hasData ? 1 : 0.4;
+  return '#ef4444';
 }
 
 // ─── Summary stats ────────────────────────────────────────────────────────────
@@ -87,6 +87,32 @@ function deriveSummary(data: DayPoint[]) {
     ? Math.round((totalCompleted / totalPossible) * 100)
     : 0;
   return { activeDays, perfectDays, avgRate, totalCompleted, totalPossible };
+}
+
+// ─── Status dot ───────────────────────────────────────────────────────────────
+// Per-day status (perfect / partial / low / zero / today) rides the dot marker
+// rather than the line, which stays a single neutral trend hue.
+
+function StatusDot(props: {
+  active?: boolean;
+  cx?: number;
+  cy?: number;
+  payload?: DayPoint;
+}) {
+  const { active, cx, cy, payload } = props;
+  if (!payload?.hasData || cx == null || cy == null) return null;
+
+  const r = active ? 5 : 4; // 8px / 10px diameter, well above the 8px floor
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={r}
+      fill={dotFill(payload)}
+      stroke="#111111" // surface ring so the dot stays legible crossing the line
+      strokeWidth={2}
+    />
+  );
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -167,11 +193,16 @@ export default function HistoryChart({ rows, month, label }: HistoryChartProps) 
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={130}>
-        <BarChart
+        <AreaChart
           data={data}
           margin={{ top: 4, right: 2, bottom: 0, left: -28 }}
-          barCategoryGap="18%"
         >
+          <defs>
+            <linearGradient id="historyTrendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.12} />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="2 4" stroke="#1e1e1e" vertical={false} />
           <XAxis
             dataKey="day"
@@ -190,18 +221,20 @@ export default function HistoryChart({ rows, month, label }: HistoryChartProps) 
           />
           <Tooltip
             content={<CustomTooltip />}
-            cursor={{ fill: 'rgba(255,255,255,0.025)' }}
+            cursor={{ stroke: '#333', strokeDasharray: '3 3' }}
           />
-          <Bar dataKey="rate" radius={[3, 3, 2, 2]}>
-            {data.map((d, i) => (
-              <Cell
-                key={i}
-                fill={barFill(d)}
-                fillOpacity={barOpacity(d)}
-              />
-            ))}
-          </Bar>
-        </BarChart>
+          <Area
+            type="monotone"
+            dataKey="value"
+            connectNulls={false}
+            stroke="#7c3aed"
+            strokeWidth={2}
+            fill="url(#historyTrendFill)"
+            dot={<StatusDot />}
+            activeDot={<StatusDot active />}
+            isAnimationActive={false}
+          />
+        </AreaChart>
       </ResponsiveContainer>
 
       {/* Summary strip */}

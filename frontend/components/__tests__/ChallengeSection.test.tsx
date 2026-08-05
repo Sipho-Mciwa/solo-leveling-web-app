@@ -55,4 +55,15 @@ describe('ChallengeSection — AI suggestion card', () => {
     await waitFor(() => expect(refreshProfile).toHaveBeenCalled());
     await waitFor(() => expect(card).toBeDisabled());
   });
+
+  it('renders as completed immediately if the backend reports the suggestion was already completed elsewhere', async () => {
+    acceptAISuggestion.mockResolvedValueOnce({ status: 'completed' });
+    render(<ChallengeSection />);
+
+    const card = await screen.findByRole('button', { name: /Daily Focus Protocol/i });
+    fireEvent.click(card);
+
+    await waitFor(() => expect(card).toBeDisabled());
+    expect(screen.queryByText(/tap to complete/i)).not.toBeInTheDocument();
+  });
 });

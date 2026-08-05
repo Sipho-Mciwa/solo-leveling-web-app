@@ -160,7 +160,9 @@ export function fetchAIChallenges() {
 }
 
 export function acceptAISuggestion(index: number) {
-  return apiFetch<{ status: string }>(`/api/ai/challenges/${index}/accept`, { method: 'PATCH' });
+  return apiFetch<{ status: AISuggestion['status'] }>(`/api/ai/challenges/${index}/accept`, {
+    method: 'PATCH',
+  });
 }
 
 export function completeAISuggestion(index: number) {

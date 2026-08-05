@@ -223,22 +223,30 @@ async function generateChallenges(userId) {
  * returns its current status without modifying anything.
  */
 async function acceptChallenge(userId, index) {
-  const cached = await getCachedAI(userId);
-  if (!cached?.challenges?.[index]) {
-    throw new AppError('Suggestion not found', 404);
-  }
+  const aiRef = db.collection('aiCache').doc(userId);
 
-  const challenge = cached.challenges[index];
-  if (challenge.status !== 'suggested') {
-    return { status: challenge.status };
-  }
+  return db.runTransaction(async (tx) => {
+    const aiSnap = await tx.get(aiRef);
+    if (!aiSnap.exists) throw new AppError('Suggestions not found', 404);
 
-  const challenges = cached.challenges.map((c, i) =>
-    i === index ? { ...c, status: 'accepted' } : c
-  );
-  await setCachedAI(userId, cached.insight, challenges);
+    const data = aiSnap.data();
+    if (data.date !== todayStr()) throw new AppError('Suggestions not found', 404);
 
-  return { status: 'accepted' };
+    const challenge = data.challenges?.[index];
+    if (!challenge) throw new AppError('Suggestion not found', 404);
+
+    const status = challenge.status ?? 'suggested';
+    if (status !== 'suggested') {
+      return { status };
+    }
+
+    const updatedChallenges = data.challenges.map((c, i) =>
+      i === index ? { ...c, status: 'accepted' } : c
+    );
+    tx.update(aiRef, { challenges: updatedChallenges });
+
+    return { status: 'accepted' };
+  });
 }
 
 /**
@@ -263,8 +271,9 @@ async function completeAISuggestion(userId, index) {
     const challenge = data.challenges?.[index];
     if (!challenge) throw new AppError('Suggestion not found', 404);
 
-    if (challenge.status === 'completed') return { alreadyCompleted: true };
-    if (challenge.status !== 'accepted') {
+    const status = challenge.status ?? 'suggested';
+    if (status === 'completed') return { alreadyCompleted: true };
+    if (status !== 'accepted') {
       throw new AppError('Suggestion must be accepted before it can be completed', 409);
     }
 

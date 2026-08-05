@@ -78,6 +78,23 @@ describe('acceptChallenge', () => {
 
     await expect(acceptChallenge(userId, 0)).rejects.toMatchObject({ status: 404 });
   });
+
+  test('treats a missing status field as suggested (pre-feature cached data)', async () => {
+    const { acceptChallenge } = require('../services/ai.service');
+    const userId = 'user-9';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{ title: 'Test', description: 'Do it', xpReward: 20 }], // no status field at all
+    });
+
+    const result = await acceptChallenge(userId, 0);
+    expect(result.status).toBe('accepted');
+
+    const snap = await mockFakeDb.collection('aiCache').doc(userId).get();
+    expect(snap.data().challenges[0].status).toBe('accepted');
+  });
 });
 
 describe('completeAISuggestion', () => {
@@ -147,5 +164,19 @@ describe('completeAISuggestion', () => {
     });
 
     await expect(completeAISuggestion(userId, 3)).rejects.toMatchObject({ status: 404 });
+  });
+
+  test('treats a missing status field as suggested, so completing it directly throws 409', async () => {
+    const { completeAISuggestion } = require('../services/ai.service');
+    const userId = 'user-10';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 0 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{ title: 'Test', description: 'Do it', xpReward: 20 }], // no status field at all
+    });
+
+    await expect(completeAISuggestion(userId, 0)).rejects.toMatchObject({ status: 409 });
   });
 });

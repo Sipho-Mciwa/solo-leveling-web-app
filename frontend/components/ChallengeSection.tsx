@@ -248,8 +248,12 @@ function SuggestionCard({
 
   async function handleClick() {
     if (suggestion.status === 'suggested') {
-      await acceptAISuggestion(index);
-      onAccepted(index);
+      const res = await acceptAISuggestion(index);
+      if (res.status === 'completed') {
+        onCompleted(index);
+      } else {
+        onAccepted(index);
+      }
     } else if (isAccepted) {
       await completeAISuggestion(index);
       onCompleted(index);

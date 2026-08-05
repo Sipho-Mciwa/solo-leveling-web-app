@@ -3,6 +3,7 @@
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import Header from '@/components/Header';
 import HunterCard from '@/components/HunterCard';
+import StatusStrip from '@/components/StatusStrip';
 import SystemFeed from '@/components/SystemFeed';
 import LoadingScreen from '@/components/LoadingScreen';
 
@@ -18,6 +19,7 @@ export default function ProfilePage() {
       <Header />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-4">
         <HunterCard />
+        <StatusStrip />
         <SystemFeed />
       </main>
     </div>

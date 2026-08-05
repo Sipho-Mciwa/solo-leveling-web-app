@@ -5,7 +5,6 @@ import UrgencyBanner from './UrgencyBanner';
 import ChallengeSection from './ChallengeSection';
 import QuestSection from './QuestSection';
 import DailySummaryPanel from './DailySummaryPanel';
-import StatusStrip from './StatusStrip';
 import DailySnapshot from './DailySnapshot';
 
 export default function Dashboard() {
@@ -14,9 +13,6 @@ export default function Dashboard() {
   return (
     <main className="max-w-2xl mx-auto px-6 py-8">
       <UrgencyBanner quests={quests} />
-
-      {/* ── Status strip ── */}
-      <StatusStrip />
 
       {/* ── Daily board ── */}
       <div className="mb-6">

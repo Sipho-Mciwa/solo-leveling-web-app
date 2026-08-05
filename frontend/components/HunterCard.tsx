@@ -4,15 +4,9 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from 'react-countup';
 import { useAuth } from '@/context/AuthContext';
-import { fetchStats, fetchHunterRecords, HunterStats, HunterRecords } from '@/lib/api';
+import { fetchStats, HunterStats } from '@/lib/api';
 import StatsRadarChart, { StatKey, STAT_ORDER, STAT_LABELS } from './StatsRadarChart';
 import { getHunterDetails } from '@/lib/hunterDetails';
-
-function formatRecordDate(date: string | undefined): string {
-  if (!date) return '';
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -28,16 +22,6 @@ function DetailRow({ label, value }: { label: string; value: string | number }) 
     <div className="flex items-center justify-between gap-3">
       <span className="text-[10px] text-muted uppercase tracking-wide">{label}</span>
       <span className="text-xs text-white font-medium">{value}</span>
-    </div>
-  );
-}
-
-function RecordCell({ label, value, date }: { label: string; value: string; date?: string }) {
-  return (
-    <div>
-      <p className="text-[9px] text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-sm text-white font-bold font-display mt-0.5">{value}</p>
-      {date && <p className="text-[9px] text-muted/60 mt-0.5">{formatRecordDate(date)}</p>}
     </div>
   );
 }
@@ -73,7 +57,6 @@ export default function HunterCard() {
   const { firebaseUser, userProfile } = useAuth();
 
   const [stats,     setStats]     = useState<HunterStats | null>(null);
-  const [records,   setRecords]   = useState<HunterRecords | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,7 +64,6 @@ export default function HunterCard() {
     fetchStats().then(setStats).catch(() => {
       setLoadError('Stats failed to load. Try refreshing.');
     });
-    fetchHunterRecords().then(setRecords).catch(() => {});
   }, [firebaseUser]);
 
   if (!userProfile || !firebaseUser) return null;
@@ -157,29 +139,6 @@ export default function HunterCard() {
           </AnimatePresence>
         )}
       </div>
-
-      {/* ── Records ───────────────────────────────────────────────────────────── */}
-      {records && (records.longestStreak != null || records.mostRepsInADay || records.longestRun) && (
-        <div className="border-t border-border pt-4">
-          <p className="text-[10px] text-muted uppercase tracking-widest mb-3">Records</p>
-          <div className="grid grid-cols-3 gap-4">
-            <RecordCell
-              label="Longest Streak"
-              value={records.longestStreak != null ? `${records.longestStreak}d` : '—'}
-            />
-            <RecordCell
-              label="Most Reps / Day"
-              value={records.mostRepsInADay ? `${records.mostRepsInADay.value}` : '—'}
-              date={records.mostRepsInADay?.date}
-            />
-            <RecordCell
-              label="Longest Run"
-              value={records.longestRun ? `${records.longestRun.value} km` : '—'}
-              date={records.longestRun?.date}
-            />
-          </div>
-        </div>
-      )}
 
     </motion.div>
   );

@@ -41,6 +41,7 @@ router.post('/challenges', async (req, res) => {
           title: 'Complete every daily challenge',
           description: "Don't skip a single one today.",
           xpReward: 25,
+          status: 'suggested',
         },
       ],
     });

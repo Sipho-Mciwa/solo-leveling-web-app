@@ -205,6 +205,8 @@ async function generateChallenges(userId) {
     challenges = DEFAULT_CHALLENGES;
   }
 
+  challenges = challenges.map((c) => ({ ...c, status: 'suggested' }));
+
   const current = await getCachedAI(userId);
   await setCachedAI(userId, current?.insight || null, challenges);
 

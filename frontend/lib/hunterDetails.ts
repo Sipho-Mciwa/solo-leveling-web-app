@@ -1,4 +1,5 @@
-import { UserProfile } from './api';
+import { UserProfile, HunterStats } from './api';
+import { STAT_ORDER } from '@/components/StatsRadarChart';
 
 // Placeholder hunter character-sheet values — shown until real values are
 // set on the user profile (those fields are fixed/backend-set, not user-
@@ -7,7 +8,6 @@ import { UserProfile } from './api';
 // every reload.
 
 const SEXES = ['Male', 'Female'];
-const JOB_CLASSES = ['Fighter', 'Assassin', 'Mage', 'Tank', 'Ranger', 'Healer'];
 
 function seedFromString(seed: string): number {
   let hash = 0;
@@ -69,10 +69,28 @@ function splitDisplayName(displayName?: string | null): [string, string] {
   return [parts[0], parts.slice(1).join(' ')];
 }
 
+const STAT_TO_CLASS: Record<'PHY' | 'SPD' | 'STAMINA' | 'INTELLECT' | 'DISCIPLINE', string> = {
+  PHY: 'Fighter',
+  SPD: 'Assassin',
+  STAMINA: 'Tank',
+  INTELLECT: 'Mage',
+  DISCIPLINE: 'Ranger',
+};
+const BALANCE_THRESHOLD = 5;
+
+function deriveJobClass(stats: HunterStats): string {
+  const entries = STAT_ORDER.map((key) => [key, stats[key]] as const).sort((a, b) => b[1] - a[1]);
+  const [topKey, topVal] = entries[0];
+  const [, secondVal] = entries[1];
+  if (topVal - secondVal < BALANCE_THRESHOLD) return 'Healer';
+  return STAT_TO_CLASS[topKey];
+}
+
 export function getHunterDetails(
   userId: string,
   displayName: string | null | undefined,
   profile: UserProfile,
+  stats: HunterStats | null,
 ): HunterDetails {
   const rand = mulberry32(seedFromString(userId));
   const [fallbackFirst, fallbackLast] = splitDisplayName(displayName);
@@ -88,7 +106,7 @@ export function getHunterDetails(
     age:       profile.dateOfBirth ? computeAge(profile.dateOfBirth) : inRange(rand, 18, 35),
     weight:    profile.weight    ?? `${inRange(rand, 55, 95)} kg`,
     sex:       profile.sex       ?? pick(rand, SEXES),
-    jobClass:  profile.jobClass  ?? pick(rand, JOB_CLASSES),
+    jobClass:  profile.jobClass  ?? (stats ? deriveJobClass(stats) : '—'),
     hunterId:  profile.hunterId  ?? `HTR-${(seedFromString(userId) % 1_000_000).toString().padStart(6, '0')}`,
     isPlaceholder: !hasRealDetails,
   };

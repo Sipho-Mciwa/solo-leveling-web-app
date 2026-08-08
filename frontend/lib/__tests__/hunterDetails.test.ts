@@ -113,9 +113,9 @@ describe('getHunterDetails', () => {
       expect(details.jobClass).toBe('Fighter');
     });
 
-    test('derives Assassin when SPD is the clear leader', () => {
+    test('derives Scout when SPD is the clear leader', () => {
       const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 20, SPD: 80, STAMINA: 20, DISCIPLINE: 20, INTELLECT: 20 }));
-      expect(details.jobClass).toBe('Assassin');
+      expect(details.jobClass).toBe('Scout');
     });
 
     test('derives Tank when STAMINA is the clear leader', () => {
@@ -133,15 +133,74 @@ describe('getHunterDetails', () => {
       expect(details.jobClass).toBe('Ranger');
     });
 
-    test('derives Healer when the top two stats are within the balance threshold', () => {
-      // Gap of 4 between top two (60 vs 56) is below BALANCE_THRESHOLD (5)
-      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 60, SPD: 56, STAMINA: 10, DISCIPLINE: 10, INTELLECT: 10 }));
-      expect(details.jobClass).toBe('Healer');
+    test('derives Berserker when PHY and SPD are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 80, SPD: 80, STAMINA: 20, DISCIPLINE: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Berserker');
     });
 
-    test('derives Healer for a brand-new account with all stats at 0', () => {
+    test('derives Juggernaut when PHY and STAMINA are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 80, STAMINA: 80, SPD: 20, DISCIPLINE: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Juggernaut');
+    });
+
+    test('derives Knight when PHY and DISCIPLINE are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 80, DISCIPLINE: 80, SPD: 20, STAMINA: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Knight');
+    });
+
+    test('derives Spellblade when PHY and INTELLECT are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 80, INTELLECT: 80, SPD: 20, STAMINA: 20, DISCIPLINE: 20 }));
+      expect(details.jobClass).toBe('Spellblade');
+    });
+
+    test('derives Assassin when SPD and STAMINA are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ SPD: 80, STAMINA: 80, PHY: 20, DISCIPLINE: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Assassin');
+    });
+
+    test('derives Duelist when SPD and DISCIPLINE are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ SPD: 80, DISCIPLINE: 80, PHY: 20, STAMINA: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Duelist');
+    });
+
+    test('derives Trickster when SPD and INTELLECT are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ SPD: 80, INTELLECT: 80, PHY: 20, STAMINA: 20, DISCIPLINE: 20 }));
+      expect(details.jobClass).toBe('Trickster');
+    });
+
+    test('derives Sentinel when STAMINA and DISCIPLINE are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ STAMINA: 80, DISCIPLINE: 80, PHY: 20, SPD: 20, INTELLECT: 20 }));
+      expect(details.jobClass).toBe('Sentinel');
+    });
+
+    test('derives Warden when STAMINA and INTELLECT are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ STAMINA: 80, INTELLECT: 80, PHY: 20, SPD: 20, DISCIPLINE: 20 }));
+      expect(details.jobClass).toBe('Warden');
+    });
+
+    test('derives Sage when DISCIPLINE and INTELLECT are tied at the top', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ DISCIPLINE: 80, INTELLECT: 80, PHY: 20, SPD: 20, STAMINA: 20 }));
+      expect(details.jobClass).toBe('Sage');
+    });
+
+    test('derives Unclassified when 3+ stats are bunched at the top with a low average', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 20, SPD: 18, STAMINA: 16, DISCIPLINE: 5, INTELLECT: 5 }));
+      expect(details.jobClass).toBe('Unclassified');
+    });
+
+    test('derives Unclassified for a brand-new account with all stats at 0', () => {
       const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats());
-      expect(details.jobClass).toBe('Healer');
+      expect(details.jobClass).toBe('Unclassified');
+    });
+
+    test('derives Player when 3+ stats are bunched at the top with a high average', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 99, SPD: 97, STAMINA: 95, DISCIPLINE: 90, INTELLECT: 90 }));
+      expect(details.jobClass).toBe('Player');
+    });
+
+    test('derives Player at exactly the elite threshold average (boundary is inclusive)', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 85, SPD: 85, STAMINA: 85, DISCIPLINE: 85, INTELLECT: 85 }));
+      expect(details.jobClass).toBe('Player');
     });
 
     test('a manual profile.jobClass override wins over the derived value', () => {

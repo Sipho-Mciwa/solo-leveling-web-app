@@ -1,5 +1,5 @@
 import { UserProfile, HunterStats } from './api';
-import { STAT_ORDER } from '@/components/StatsRadarChart';
+import { STAT_ORDER, StatKey } from '@/components/StatsRadarChart';
 
 // Placeholder hunter character-sheet values — shown until real values are
 // set on the user profile (those fields are fixed/backend-set, not user-
@@ -71,19 +71,44 @@ function splitDisplayName(displayName?: string | null): [string, string] {
 
 const STAT_TO_CLASS: Record<'PHY' | 'SPD' | 'STAMINA' | 'INTELLECT' | 'DISCIPLINE', string> = {
   PHY: 'Fighter',
-  SPD: 'Assassin',
+  SPD: 'Scout',
   STAMINA: 'Tank',
   INTELLECT: 'Mage',
   DISCIPLINE: 'Ranger',
 };
+
+const PAIR_TO_CLASS: Record<string, string> = {
+  'PHY|SPD': 'Berserker',
+  'PHY|STAMINA': 'Juggernaut',
+  'PHY|DISCIPLINE': 'Knight',
+  'PHY|INTELLECT': 'Spellblade',
+  'SPD|STAMINA': 'Assassin',
+  'SPD|DISCIPLINE': 'Duelist',
+  'SPD|INTELLECT': 'Trickster',
+  'STAMINA|DISCIPLINE': 'Sentinel',
+  'STAMINA|INTELLECT': 'Warden',
+  'DISCIPLINE|INTELLECT': 'Sage',
+};
+
 const BALANCE_THRESHOLD = 5;
+const ELITE_THRESHOLD = 85;
+
+function pairKey(a: StatKey, b: StatKey): string {
+  const [x, y] = STAT_ORDER.indexOf(a) < STAT_ORDER.indexOf(b) ? [a, b] : [b, a];
+  return `${x}|${y}`;
+}
 
 function deriveJobClass(stats: HunterStats): string {
   const entries = STAT_ORDER.map((key) => [key, stats[key]] as const).sort((a, b) => b[1] - a[1]);
-  const [topKey, topVal] = entries[0];
-  const [, secondVal] = entries[1];
-  if (topVal - secondVal < BALANCE_THRESHOLD) return 'Healer';
-  return STAT_TO_CLASS[topKey];
+  const [firstKey, firstVal] = entries[0];
+  const [secondKey, secondVal] = entries[1];
+  const [, thirdVal] = entries[2];
+
+  if (firstVal - secondVal >= BALANCE_THRESHOLD) return STAT_TO_CLASS[firstKey];
+  if (secondVal - thirdVal >= BALANCE_THRESHOLD) return PAIR_TO_CLASS[pairKey(firstKey, secondKey)];
+
+  const average = STAT_ORDER.reduce((sum, key) => sum + stats[key], 0) / STAT_ORDER.length;
+  return average >= ELITE_THRESHOLD ? 'Player' : 'Unclassified';
 }
 
 export function getHunterDetails(

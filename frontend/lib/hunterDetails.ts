@@ -107,7 +107,13 @@ function deriveJobClass(stats: HunterStats): string {
   if (firstVal - secondVal >= BALANCE_THRESHOLD) return STAT_TO_CLASS[firstKey];
   if (secondVal - thirdVal >= BALANCE_THRESHOLD) return PAIR_TO_CLASS[pairKey(firstKey, secondKey)];
 
-  const average = STAT_ORDER.reduce((sum, key) => sum + stats[key], 0) / STAT_ORDER.length;
+  // Flat profile: find the "bunched" prefix (consecutive stats with gap < BALANCE_THRESHOLD)
+  let bunchEnd = 1; // entries[0] is always in the bunch once we reach this branch
+  while (bunchEnd + 1 < entries.length && entries[bunchEnd][1] - entries[bunchEnd + 1][1] < BALANCE_THRESHOLD) {
+    bunchEnd++;
+  }
+  const bunch = entries.slice(0, bunchEnd + 1);
+  const average = bunch.reduce((sum, [, val]) => sum + val, 0) / bunch.length;
   return average >= ELITE_THRESHOLD ? 'Player' : 'Unclassified';
 }
 

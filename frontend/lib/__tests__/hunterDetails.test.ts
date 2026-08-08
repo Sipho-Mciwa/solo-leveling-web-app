@@ -203,6 +203,16 @@ describe('getHunterDetails', () => {
       expect(details.jobClass).toBe('Player');
     });
 
+    test('derives Unclassified just below the elite threshold average (boundary is inclusive, not exclusive)', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 84, SPD: 84, STAMINA: 84, DISCIPLINE: 84, INTELLECT: 84 }));
+      expect(details.jobClass).toBe('Unclassified');
+    });
+
+    test('derives Player when the top 3 stats are bunched and elite, even with two unrelated low stats', () => {
+      const details = getHunterDetails('user-1', 'Sipho', baseProfile(), stats({ PHY: 90, SPD: 88, STAMINA: 86, DISCIPLINE: 10, INTELLECT: 10 }));
+      expect(details.jobClass).toBe('Player');
+    });
+
     test('a manual profile.jobClass override wins over the derived value', () => {
       const details = getHunterDetails('user-1', 'Sipho', baseProfile({ jobClass: 'Mage' }), stats({ PHY: 90, SPD: 10, STAMINA: 10, DISCIPLINE: 10, INTELLECT: 10 }));
       expect(details.jobClass).toBe('Mage');

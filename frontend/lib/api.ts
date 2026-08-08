@@ -172,6 +172,19 @@ export function completeAISuggestion(index: number) {
   );
 }
 
+export function generateSubtasks(index: number) {
+  return apiFetch<{ subtasks: NonNullable<AISuggestion['subtasks']> }>(`/api/ai/challenges/${index}/subtasks`, {
+    method: 'POST',
+  });
+}
+
+export function toggleSubtask(index: number, subIndex: number) {
+  return apiFetch<{ subtasks: NonNullable<AISuggestion['subtasks']>; completed: boolean; xp?: XPResult }>(
+    `/api/ai/challenges/${index}/subtasks/${subIndex}/toggle`,
+    { method: 'PATCH' }
+  );
+}
+
 // AI System Events
 export function fetchSystemEvents() {
   return apiFetch<SystemEventsResponse>('/api/ai/events');
@@ -498,6 +511,7 @@ export interface AISuggestion {
   description: string;
   xpReward: number;
   status: 'suggested' | 'accepted' | 'completed';
+  subtasks?: { title: string; completed: boolean }[];
 }
 
 export type SystemEventType = 'system' | 'warning' | 'alert' | 'narrative' | 'special';

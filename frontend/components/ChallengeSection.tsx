@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
-import { DailyChallenge, AISuggestion, fetchAIChallenges, acceptAISuggestion, completeAISuggestion } from '@/lib/api';
+import { DailyChallenge, AISuggestion, fetchAIChallenges, acceptAISuggestion, generateSubtasks, toggleSubtask, completeAISuggestion } from '@/lib/api';
 
 // ─── Stagger variants ─────────────────────────────────────────────────────────
 
@@ -35,6 +35,18 @@ export default function ChallengeSection() {
   function markAccepted(index: number) {
     setAiSuggestions((prev) =>
       prev.map((s, i) => (i === index ? { ...s, status: 'accepted' } : s))
+    );
+  }
+
+  function markSubtasksGenerated(index: number, subtasks: AISuggestion['subtasks']) {
+    setAiSuggestions((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, subtasks } : s))
+    );
+  }
+
+  function markSubtaskToggled(index: number, subtasks: AISuggestion['subtasks']) {
+    setAiSuggestions((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, subtasks } : s))
     );
   }
 
@@ -136,15 +148,21 @@ export default function ChallengeSection() {
               </span>
             </div>
             <div className="space-y-2">
-              {aiSuggestions.map((s, i) => (
-                <SuggestionCard
-                  key={i}
-                  suggestion={s}
-                  index={i}
-                  onAccepted={markAccepted}
-                  onCompleted={markCompleted}
-                />
-              ))}
+              {aiSuggestions.map((s, i) => {
+                const selectedIndex = aiSuggestions.findIndex((x) => x.status !== 'suggested');
+                return (
+                  <SuggestionCard
+                    key={i}
+                    suggestion={s}
+                    index={i}
+                    isLocked={selectedIndex !== -1 && selectedIndex !== i}
+                    onAccepted={markAccepted}
+                    onSubtasksGenerated={markSubtasksGenerated}
+                    onSubtaskToggled={markSubtaskToggled}
+                    onCompleted={markCompleted}
+                  />
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -234,54 +252,63 @@ function ChallengeItem({ challenge }: { challenge: DailyChallenge }) {
 function SuggestionCard({
   suggestion,
   index,
+  isLocked,
   onAccepted,
+  onSubtasksGenerated,
+  onSubtaskToggled,
   onCompleted,
 }: {
   suggestion: AISuggestion;
   index: number;
+  isLocked: boolean;
   onAccepted: (index: number) => void;
+  onSubtasksGenerated: (index: number, subtasks: AISuggestion['subtasks']) => void;
+  onSubtaskToggled: (index: number, subtasks: AISuggestion['subtasks']) => void;
   onCompleted: (index: number) => void;
 }) {
   const { refreshProfile } = useAuth();
+  const [generatingSubtasks, setGeneratingSubtasks] = useState(false);
   const isAccepted = suggestion.status === 'accepted';
   const isCompleted = suggestion.status === 'completed';
+  const hasSubtasks = Boolean(suggestion.subtasks?.length);
 
-  async function handleClick() {
-    if (suggestion.status === 'suggested') {
-      const res = await acceptAISuggestion(index);
-      if (res.status === 'completed') {
-        onCompleted(index);
-      } else {
-        onAccepted(index);
-      }
-    } else if (isAccepted) {
-      await completeAISuggestion(index);
+  async function handleAccept() {
+    if (suggestion.status !== 'suggested' || isLocked) return;
+    const res = await acceptAISuggestion(index);
+    if (res.status === 'completed') {
+      onCompleted(index);
+      return;
+    }
+    onAccepted(index);
+    setGeneratingSubtasks(true);
+    try {
+      const { subtasks } = await generateSubtasks(index);
+      onSubtasksGenerated(index, subtasks);
+    } finally {
+      setGeneratingSubtasks(false);
+    }
+  }
+
+  async function handleToggleSubtask(subIndex: number) {
+    const res = await toggleSubtask(index, subIndex);
+    onSubtaskToggled(index, res.subtasks);
+    if (res.completed) {
       onCompleted(index);
       await refreshProfile();
     }
   }
 
-  return (
-    <button
-      onClick={handleClick}
-      disabled={isCompleted}
-      className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
-        isCompleted
-          ? 'border-border/30 bg-surface/30 cursor-default'
-          : isAccepted
-          ? 'border-accent/40 bg-accent/10 hover:bg-accent/15 cursor-pointer'
-          : 'border-accent/20 bg-accent/5 hover:bg-accent/10 cursor-pointer'
-      }`}
-    >
-      <div
-        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-          isCompleted
-            ? 'border-accent bg-accent'
-            : isAccepted
-            ? 'border-accent-light bg-accent/30'
-            : 'border-accent/40'
-        }`}
-      >
+  const iconWrapClasses = `w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+    isCompleted
+      ? 'border-accent bg-accent'
+      : isAccepted
+      ? 'border-accent-light bg-accent/30'
+      : 'border-accent/40'
+  }`;
+
+  const body = (
+    <>
+      <div className={iconWrapClasses}>
         {isCompleted ? (
           <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -299,13 +326,79 @@ function SuggestionCard({
           {suggestion.title}
         </p>
         <p className="text-[11px] text-muted mt-0.5 leading-snug">{suggestion.description}</p>
-        {isAccepted && (
-          <p className="text-[10px] text-accent-light/70 mt-1 uppercase tracking-wide">Tap to complete</p>
+
+        {isAccepted && generatingSubtasks && (
+          <div className="mt-2 space-y-1.5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-4 w-full bg-accent/10 rounded animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {isAccepted && hasSubtasks && (
+          <ul className="mt-2 space-y-1.5">
+            {suggestion.subtasks!.map((s, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => handleToggleSubtask(i)}
+                  disabled={s.completed}
+                  className="w-full flex items-center gap-2 text-left"
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                      s.completed ? 'border-accent bg-accent' : 'border-accent/40'
+                    }`}
+                  >
+                    {s.completed && (
+                      <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </span>
+                  <span className={`text-[11px] ${s.completed ? 'text-muted line-through' : 'text-white/80'}`}>
+                    {s.title}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
       <span className={`text-xs font-medium shrink-0 ${isCompleted ? 'text-muted' : 'text-accent-light/70'}`}>
         +{suggestion.xpReward} XP
       </span>
-    </button>
+    </>
+  );
+
+  // A locked-but-still-'suggested' card (the sibling of whichever one got
+  // accepted) must NOT be a <button> at all, even a disabled one — a
+  // disabled button still exposes role="button" in the accessibility tree,
+  // which would make it indistinguishable from an interactive card to
+  // anything querying by role. Only a truly selectable card is a <button>;
+  // every other state (locked, accepted, completed) is an inert <div>.
+  if (suggestion.status === 'suggested' && !isLocked) {
+    return (
+      <button
+        onClick={handleAccept}
+        className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition-all border-accent/20 bg-accent/5 hover:bg-accent/10 cursor-pointer"
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+        isCompleted || isLocked ? 'border-border/30 bg-surface/30' : 'border-accent/40 bg-accent/10'
+      } ${isLocked ? 'opacity-50' : ''}`}
+    >
+      {body}
+    </div>
   );
 }

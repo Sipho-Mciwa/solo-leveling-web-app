@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { db } = require('../config/firebase');
+const { isDoubleXpActive } = require('./xpService');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -28,13 +29,6 @@ const nowISO    = () => new Date().toISOString();
 
 function makeId(segment, suffix) {
   return suffix ? `${segment}_${todayStr()}_${suffix}` : `${segment}_${todayStr()}`;
-}
-
-// Stable hash: true for ~10% of userId × day combinations
-function doubleXPToday(userId) {
-  let h = 0;
-  for (const c of `${userId}_${todayStr()}_2x`) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
-  return h % 10 === 0;
 }
 
 // Stable hash: true for ~20% of userId × week combinations
@@ -207,7 +201,7 @@ function buildSpecialEvents(userId, memory) {
   const events = [];
 
   // Double XP window (~10% of days, per-user deterministic)
-  if (doubleXPToday(userId)) {
+  if (isDoubleXpActive(userId)) {
     events.push({
       id: makeId('special', 'double_xp'),
       type: TYPE.SPECIAL, icon: ICON.XP, priority: PRIORITY.HIGH,

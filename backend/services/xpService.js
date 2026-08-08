@@ -7,6 +7,20 @@ function xpRequiredForLevel(level) {
   return Math.floor(BASE_XP * Math.pow(1.5, level));
 }
 
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Stable hash: true for ~10% of userId × day combinations. Deterministic so
+// repeated calls within the same day agree without needing to persist state —
+// the System Log event generator and the actual reward calculators below both
+// call this and always land on the same answer for a given user/day.
+function isDoubleXpActive(userId) {
+  let h = 0;
+  for (const c of `${userId}_${todayStr()}_2x`) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return h % 10 === 0;
+}
+
 /**
  * Pure function: given a user doc and an XP delta, computes the new xp/level.
  * Does no I/O — callers decide how/when to persist `updates`.
@@ -60,4 +74,4 @@ function getTotalXp(level, xpRemainder) {
   return total;
 }
 
-module.exports = { addXp, computeXpGain, xpRequiredForLevel, getTotalXp };
+module.exports = { addXp, computeXpGain, xpRequiredForLevel, getTotalXp, isDoubleXpActive };

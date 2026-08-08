@@ -19,19 +19,24 @@ function matches(data, filter) {
 }
 
 class FakeQuery {
-  constructor(store, collectionName, filters = [], limitN = null) {
+  constructor(store, collectionName, filters = [], limitN = null, order = null) {
     this.store = store;
     this.collectionName = collectionName;
     this.filters = filters;
     this.limitN = limitN;
+    this.order = order;
   }
 
   where(field, op, value) {
-    return new FakeQuery(this.store, this.collectionName, [...this.filters, { field, op, value }], this.limitN);
+    return new FakeQuery(this.store, this.collectionName, [...this.filters, { field, op, value }], this.limitN, this.order);
+  }
+
+  orderBy(field, direction = 'asc') {
+    return new FakeQuery(this.store, this.collectionName, this.filters, this.limitN, { field, direction });
   }
 
   limit(n) {
-    return new FakeQuery(this.store, this.collectionName, this.filters, n);
+    return new FakeQuery(this.store, this.collectionName, this.filters, n, this.order);
   }
 
   doc(id) {
@@ -51,6 +56,11 @@ class FakeQuery {
     let entries = [...map.entries()];
     for (const f of this.filters) {
       entries = entries.filter(([, data]) => matches(data, f));
+    }
+    if (this.order) {
+      const { field, direction } = this.order;
+      const sign = direction === 'desc' ? -1 : 1;
+      entries = [...entries].sort(([, a], [, b]) => (a[field] > b[field] ? 1 : a[field] < b[field] ? -1 : 0) * sign);
     }
     if (this.limitN != null) entries = entries.slice(0, this.limitN);
     const docs = entries.map(([id, data]) => new FakeDocSnap(this.store, this.collectionName, id, data));

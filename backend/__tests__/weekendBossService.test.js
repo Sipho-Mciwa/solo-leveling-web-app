@@ -1,4 +1,10 @@
-jest.mock('../config/firebase', () => ({ db: {}, auth: {} }));
+const { createFakeDb } = require('../test-helpers/fakeFirestore');
+
+let mockFakeDb;
+jest.mock('../config/firebase', () => ({
+  get db() { return mockFakeDb; },
+  auth: {},
+}));
 
 const { computeOverperformanceBonus, computeBossHistory } = require('../services/weekendBossService');
 
@@ -80,5 +86,48 @@ describe('computeBossHistory', () => {
     ];
     const { history } = computeBossHistory(docs, '2026-07-25', 2);
     expect(history).toHaveLength(2);
+  });
+});
+
+describe('getWeekendBossHistory', () => {
+  beforeEach(() => {
+    mockFakeDb = createFakeDb();
+    jest.resetModules();
+  });
+
+  test('lazily expires a past weekend boss stuck on "active" and counts it as missed', async () => {
+    const { getWeekendBossHistory } = require('../services/weekendBossService');
+    const userId = 'user-1';
+    await mockFakeDb.collection('weekendBossChallenges').add({
+      userId,
+      weekendId: '2000-01-01',
+      status: 'active',
+      endTime: '2000-01-02T23:59:59.999Z', // long past, never submitted
+      submission: null,
+    });
+
+    const { stats } = await getWeekendBossHistory(userId, 20);
+
+    expect(stats.missed).toBe(1);
+    expect(stats.defeated).toBe(0);
+
+    const docs = (await mockFakeDb.collection('weekendBossChallenges').where('userId', '==', userId).get()).docs;
+    expect(docs[0].data().status).toBe('expired');
+  });
+
+  test('leaves a claimed past weekend boss untouched', async () => {
+    const { getWeekendBossHistory } = require('../services/weekendBossService');
+    const userId = 'user-1';
+    await mockFakeDb.collection('weekendBossChallenges').add({
+      userId,
+      weekendId: '2000-01-01',
+      status: 'claimed',
+      endTime: '2000-01-02T23:59:59.999Z',
+    });
+
+    const { stats } = await getWeekendBossHistory(userId, 20);
+
+    expect(stats.defeated).toBe(1);
+    expect(stats.missed).toBe(0);
   });
 });

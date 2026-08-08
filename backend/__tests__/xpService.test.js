@@ -1,6 +1,6 @@
 jest.mock('../config/firebase', () => ({ db: {}, auth: {} }));
 
-const { computeXpGain, xpRequiredForLevel, getTotalXp } = require('../services/xpService');
+const { computeXpGain, xpRequiredForLevel, getTotalXp, isDoubleXpActive } = require('../services/xpService');
 
 describe('computeXpGain', () => {
   test('adds XP without leveling up', () => {
@@ -52,5 +52,21 @@ describe('getTotalXp', () => {
 
   test('returns just the remainder at level 1', () => {
     expect(getTotalXp(1, 42)).toBe(42);
+  });
+});
+
+describe('isDoubleXpActive', () => {
+  test('is deterministic for the same user on the same day', () => {
+    const first = isDoubleXpActive('user-123');
+    const second = isDoubleXpActive('user-123');
+    expect(second).toBe(first);
+  });
+
+  test('varies across users so it is not a global on/off switch', () => {
+    const results = new Set(
+      Array.from({ length: 50 }, (_, i) => isDoubleXpActive(`user-${i}`))
+    );
+    expect(results.has(true)).toBe(true);
+    expect(results.has(false)).toBe(true);
   });
 });

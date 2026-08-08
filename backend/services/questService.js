@@ -1,5 +1,5 @@
 const { db } = require('../config/firebase');
-const { computeXpGain } = require('./xpService');
+const { computeXpGain, isDoubleXpActive } = require('./xpService');
 const { computeStreakUpdate } = require('./streakService');
 const { applyDifficultyScaling } = require('./difficultyService');
 const { computePromotion } = require('./rankService');
@@ -209,9 +209,10 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
     if (isComplete) {
       let user = userSnap.data();
       const userUpdates = {};
+      const xpMultiplier = isDoubleXpActive(userId) ? 2 : 1;
 
       // Base XP
-      const xpGain = computeXpGain(user, quest.xpReward);
+      const xpGain = computeXpGain(user, quest.xpReward * xpMultiplier);
       Object.assign(userUpdates, xpGain.updates);
       xpResult = xpGain.result;
       user = { ...user, ...xpGain.updates };
@@ -219,7 +220,7 @@ async function updateQuestProgress(dailyQuestId, userId, newValue) {
       // Overperformance bonus: up to 50% extra XP for exceeding the target
       if (newValue > target) {
         const overRatio = Math.min((newValue - target) / target, OVERPERFORMANCE_CAP);
-        const bonusAmount = Math.floor(quest.xpReward * overRatio);
+        const bonusAmount = Math.floor(quest.xpReward * overRatio) * xpMultiplier;
         if (bonusAmount > 0) {
           bonusXp = bonusAmount;
           const bonusGain = computeXpGain(user, bonusAmount);

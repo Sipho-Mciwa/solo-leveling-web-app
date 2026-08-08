@@ -259,12 +259,25 @@ async function getWeekendBoss(userId) {
   if (boss.status === 'claimed') return { boss: null };
 
   // Lazy expiry: active boss past its end time → mark expired
-  if (boss.status === 'active' && new Date(boss.endTime) < new Date()) {
-    await doc.ref.update({ status: 'expired' });
-    boss.status = 'expired';
-  }
+  if (await expireIfPast(doc.ref, boss)) boss.status = 'expired';
 
   return { boss };
+}
+
+/**
+ * Lazy expiry, shared by getWeekendBoss (current week only) and
+ * getWeekendBossHistory (all past weeks). A boss can go stale in either
+ * path — the current week's boss if the user never reopens the app before
+ * Monday, or an older week's boss that was already stale when its weekend
+ * ended and simply never got looked at again — so both call sites need it,
+ * not just the current-week one.
+ */
+async function expireIfPast(ref, boss) {
+  if (boss.status === 'active' && new Date(boss.endTime) < new Date()) {
+    await ref.update({ status: 'expired' });
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -302,7 +315,13 @@ async function getWeekendBossHistory(userId, limit = 20) {
     .limit(limit + 1) // +1 to account for the current in-progress weekend, if any
     .get();
 
-  const docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const docs = await Promise.all(
+    snap.docs.map(async (doc) => {
+      const boss = { id: doc.id, ...doc.data() };
+      if (await expireIfPast(doc.ref, boss)) boss.status = 'expired';
+      return boss;
+    })
+  );
 
   return computeBossHistory(docs, currentWeekendId, limit);
 }

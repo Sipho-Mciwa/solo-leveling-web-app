@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "weekendBossChallenges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "weekendId", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

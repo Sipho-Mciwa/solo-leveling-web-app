@@ -1,5 +1,5 @@
 const { db } = require('../config/firebase');
-const { computeXpGain } = require('./xpService');
+const { computeXpGain, isDoubleXpActive } = require('./xpService');
 const { evaluateTitles } = require('./titleService');
 const { updateUserRank } = require('./rankService');
 const { logger } = require('../utils/logger');
@@ -105,15 +105,16 @@ async function completeChallenge(docId, userId, challengeKey) {
 
     let user = userSnap.data();
     const userUpdates = {};
+    const xpMultiplier = isDoubleXpActive(userId) ? 2 : 1;
 
-    const xpGain = computeXpGain(user, challenge.xpReward);
+    const xpGain = computeXpGain(user, challenge.xpReward * xpMultiplier);
     Object.assign(userUpdates, xpGain.updates);
     let xpResult = xpGain.result;
     user = { ...user, ...xpGain.updates };
 
     let bonusXpResult = null;
     if (shouldAwardBonus) {
-      const bonusGain = computeXpGain(user, ALL_COMPLETE_BONUS);
+      const bonusGain = computeXpGain(user, ALL_COMPLETE_BONUS * xpMultiplier);
       Object.assign(userUpdates, bonusGain.updates);
       bonusXpResult = bonusGain.result;
     }

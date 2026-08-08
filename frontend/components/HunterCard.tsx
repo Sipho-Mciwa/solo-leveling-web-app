@@ -74,7 +74,7 @@ export default function HunterCard() {
   const weakestStat: StatKey | null = stats ? getWeakestStat(stats) : null;
 
   // ── Character sheet ──────────────────────────────────────────────────────
-  const details = getHunterDetails(uid, displayName, userProfile);
+  const details = getHunterDetails(uid, displayName, userProfile, stats);
 
   return (
     <motion.div

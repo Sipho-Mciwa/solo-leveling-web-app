@@ -1,5 +1,5 @@
 import { UserProfile, HunterStats } from './api';
-import { STAT_ORDER, StatKey } from '@/components/StatsRadarChart';
+import { STAT_ORDER, type StatKey } from '@/components/StatsRadarChart';
 
 // Placeholder hunter character-sheet values — shown until real values are
 // set on the user profile (those fields are fixed/backend-set, not user-
@@ -69,7 +69,7 @@ function splitDisplayName(displayName?: string | null): [string, string] {
   return [parts[0], parts.slice(1).join(' ')];
 }
 
-const STAT_TO_CLASS: Record<'PHY' | 'SPD' | 'STAMINA' | 'INTELLECT' | 'DISCIPLINE', string> = {
+const STAT_TO_CLASS: Record<StatKey, string> = {
   PHY: 'Fighter',
   SPD: 'Scout',
   STAMINA: 'Tank',
@@ -105,7 +105,7 @@ function deriveJobClass(stats: HunterStats): string {
   const [, thirdVal] = entries[2];
 
   if (firstVal - secondVal >= BALANCE_THRESHOLD) return STAT_TO_CLASS[firstKey];
-  if (secondVal - thirdVal >= BALANCE_THRESHOLD) return PAIR_TO_CLASS[pairKey(firstKey, secondKey)];
+  if (secondVal - thirdVal >= BALANCE_THRESHOLD) return PAIR_TO_CLASS[pairKey(firstKey, secondKey)] ?? 'Unclassified';
 
   // Flat profile: find the "bunched" prefix (consecutive stats with gap < BALANCE_THRESHOLD)
   let bunchEnd = 1; // entries[0] is always in the bunch once we reach this branch

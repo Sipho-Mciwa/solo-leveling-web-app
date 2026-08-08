@@ -98,4 +98,21 @@ describe('ChallengeSection — AI suggestion cards', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /Daily Focus Protocol/i })).not.toBeInTheDocument());
     expect(generateSubtasks).not.toHaveBeenCalled();
   });
+
+  it('shows a retry option if checklist generation fails, and recovers on retry', async () => {
+    generateSubtasks
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({ subtasks: [{ title: 'Step one', completed: false }] });
+
+    render(<ChallengeSection />);
+
+    const firstCard = await screen.findByRole('button', { name: /Daily Focus Protocol/i });
+    fireEvent.click(firstCard);
+
+    const retryButton = await screen.findByRole('button', { name: /tap to retry/i });
+    fireEvent.click(retryButton);
+
+    await screen.findByRole('button', { name: 'Step one' });
+    expect(generateSubtasks).toHaveBeenCalledTimes(2);
+  });
 });

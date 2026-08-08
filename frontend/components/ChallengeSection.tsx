@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useChallenges } from '@/context/ChallengeContext';
 import { useAuth } from '@/context/AuthContext';
-import { DailyChallenge, AISuggestion, fetchAIChallenges, acceptAISuggestion, generateSubtasks, toggleSubtask, completeAISuggestion } from '@/lib/api';
+import { DailyChallenge, AISuggestion, fetchAIChallenges, acceptAISuggestion, generateSubtasks, toggleSubtask } from '@/lib/api';
 
 // ─── Stagger variants ─────────────────────────────────────────────────────────
 
@@ -38,13 +38,7 @@ export default function ChallengeSection() {
     );
   }
 
-  function markSubtasksGenerated(index: number, subtasks: AISuggestion['subtasks']) {
-    setAiSuggestions((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, subtasks } : s))
-    );
-  }
-
-  function markSubtaskToggled(index: number, subtasks: AISuggestion['subtasks']) {
+  function markSubtasks(index: number, subtasks: AISuggestion['subtasks']) {
     setAiSuggestions((prev) =>
       prev.map((s, i) => (i === index ? { ...s, subtasks } : s))
     );
@@ -157,8 +151,8 @@ export default function ChallengeSection() {
                     index={i}
                     isLocked={selectedIndex !== -1 && selectedIndex !== i}
                     onAccepted={markAccepted}
-                    onSubtasksGenerated={markSubtasksGenerated}
-                    onSubtaskToggled={markSubtaskToggled}
+                    onSubtasksGenerated={markSubtasks}
+                    onSubtaskToggled={markSubtasks}
                     onCompleted={markCompleted}
                   />
                 );
@@ -268,6 +262,7 @@ function SuggestionCard({
 }) {
   const { refreshProfile } = useAuth();
   const [generatingSubtasks, setGeneratingSubtasks] = useState(false);
+  const [subtaskError, setSubtaskError] = useState(false);
   const isAccepted = suggestion.status === 'accepted';
   const isCompleted = suggestion.status === 'completed';
   const hasSubtasks = Boolean(suggestion.subtasks?.length);
@@ -284,6 +279,22 @@ function SuggestionCard({
     try {
       const { subtasks } = await generateSubtasks(index);
       onSubtasksGenerated(index, subtasks);
+      setSubtaskError(false);
+    } catch {
+      setSubtaskError(true);
+    } finally {
+      setGeneratingSubtasks(false);
+    }
+  }
+
+  async function handleRetryGenerateSubtasks() {
+    setSubtaskError(false);
+    setGeneratingSubtasks(true);
+    try {
+      const { subtasks } = await generateSubtasks(index);
+      onSubtasksGenerated(index, subtasks);
+    } catch {
+      setSubtaskError(true);
     } finally {
       setGeneratingSubtasks(false);
     }
@@ -333,6 +344,16 @@ function SuggestionCard({
               <div key={i} className="h-4 w-full bg-accent/10 rounded animate-pulse" />
             ))}
           </div>
+        )}
+
+        {isAccepted && !generatingSubtasks && subtaskError && !hasSubtasks && (
+          <button
+            type="button"
+            onClick={handleRetryGenerateSubtasks}
+            className="mt-2 text-[11px] text-accent-light/80 underline"
+          >
+            Checklist failed to generate — tap to retry
+          </button>
         )}
 
         {isAccepted && hasSubtasks && (

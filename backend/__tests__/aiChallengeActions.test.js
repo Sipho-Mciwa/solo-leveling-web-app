@@ -15,6 +15,13 @@ jest.mock('../services/rankService', () => ({ updateUserRank: jest.fn().mockReso
 beforeEach(() => {
   mockFakeDb = createFakeDb();
   jest.resetModules();
+  // Force the deterministic no-API-key fallback path for any test that
+  // exercises callAI (generateSubtasks) — matches the convention already
+  // used in __tests__/aiSuggestionStatus.test.js. We're not testing LLM
+  // integration, just that generateSubtasks correctly parses whatever
+  // string callAI returns and persists it.
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.GROQ_API_KEY;
 });
 
 function todayStr() {
@@ -178,5 +185,199 @@ describe('completeAISuggestion', () => {
     });
 
     await expect(completeAISuggestion(userId, 0)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('acceptChallenge — single-select invariant', () => {
+  test('accepting a second suggestion while another is already accepted throws 409', async () => {
+    const { acceptChallenge } = require('../services/ai.service');
+    const userId = 'user-11';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [
+        { title: 'First', description: 'Do it', xpReward: 20, status: 'accepted' },
+        { title: 'Second', description: 'Do it too', xpReward: 20, status: 'suggested' },
+      ],
+    });
+
+    await expect(acceptChallenge(userId, 1)).rejects.toMatchObject({ status: 409 });
+
+    const snap = await mockFakeDb.collection('aiCache').doc(userId).get();
+    expect(snap.data().challenges[1].status).toBe('suggested');
+  });
+
+  test('accepting a second suggestion while another is already completed throws 409', async () => {
+    const { acceptChallenge } = require('../services/ai.service');
+    const userId = 'user-12';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [
+        { title: 'First', description: 'Do it', xpReward: 20, status: 'completed' },
+        { title: 'Second', description: 'Do it too', xpReward: 20, status: 'suggested' },
+      ],
+    });
+
+    await expect(acceptChallenge(userId, 1)).rejects.toMatchObject({ status: 409 });
+  });
+
+  test('accepting the only suggested one when the other is still suggested succeeds', async () => {
+    const { acceptChallenge } = require('../services/ai.service');
+    const userId = 'user-13';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [
+        { title: 'First', description: 'Do it', xpReward: 20, status: 'suggested' },
+        { title: 'Second', description: 'Do it too', xpReward: 20, status: 'suggested' },
+      ],
+    });
+
+    const result = await acceptChallenge(userId, 1);
+    expect(result.status).toBe('accepted');
+  });
+});
+
+describe('generateSubtasks', () => {
+  test('generates DEFAULT_SUBTASKS via the deterministic no-API-key fallback path and persists them', async () => {
+    // No GEMINI_API_KEY/GROQ_API_KEY (deleted in beforeEach) means callAI
+    // returns its `fallback` argument verbatim — JSON.stringify(DEFAULT_SUBTASKS)
+    // — which parseSubtasksJSON then parses back into subtask objects. This
+    // exercises the real parse path without needing to mock the Gemini/Groq
+    // SDKs (no precedent for that in this test suite — see aiSuggestionStatus.test.js).
+    const { generateSubtasks } = require('../services/ai.service');
+    const userId = 'user-14';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{ title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted' }],
+    });
+
+    const subtasks = await generateSubtasks(userId, 0);
+    expect(subtasks).toEqual([
+      { title: 'Initiate the protocol immediately.', completed: false },
+      { title: 'Execute without interruption.', completed: false },
+      { title: 'Log completion status.', completed: false },
+    ]);
+
+    const snap = await mockFakeDb.collection('aiCache').doc(userId).get();
+    expect(snap.data().challenges[0].subtasks).toEqual(subtasks);
+  });
+
+  test('throws 409 when generating subtasks for a suggestion that is not accepted', async () => {
+    const { generateSubtasks } = require('../services/ai.service');
+    const userId = 'user-16';
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{ title: 'Test', description: 'Do it', xpReward: 20, status: 'suggested' }],
+    });
+
+    await expect(generateSubtasks(userId, 0)).rejects.toMatchObject({ status: 409 });
+  });
+
+  test('is idempotent — calling twice returns the already-generated subtasks without regenerating', async () => {
+    const { generateSubtasks } = require('../services/ai.service');
+    const userId = 'user-17';
+    const existingSubtasks = [{ title: 'Already here', completed: false }];
+
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{ title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted', subtasks: existingSubtasks }],
+    });
+
+    const subtasks = await generateSubtasks(userId, 0);
+    expect(subtasks).toEqual(existingSubtasks);
+  });
+});
+
+describe('toggleSubtask', () => {
+  test('toggling one of several incomplete subtasks does not complete the suggestion or award XP', async () => {
+    const { toggleSubtask } = require('../services/ai.service');
+    const userId = 'user-18';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 0 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{
+        title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted',
+        subtasks: [{ title: 'A', completed: false }, { title: 'B', completed: false }],
+      }],
+    });
+
+    const result = await toggleSubtask(userId, 0, 0);
+    expect(result.completed).toBe(false);
+    expect(result.subtasks[0].completed).toBe(true);
+    expect(result.subtasks[1].completed).toBe(false);
+
+    const userSnap = await mockFakeDb.collection('users').doc(userId).get();
+    expect(userSnap.data().xp).toBe(0);
+  });
+
+  test('toggling the last remaining unchecked subtask completes the suggestion and awards XP', async () => {
+    const { toggleSubtask } = require('../services/ai.service');
+    const userId = 'user-19';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 0 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{
+        title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted',
+        subtasks: [{ title: 'A', completed: true }, { title: 'B', completed: false }],
+      }],
+    });
+
+    const result = await toggleSubtask(userId, 0, 1);
+    expect(result.completed).toBe(true);
+    expect(result.xp.xpGained).toBe(20);
+
+    const userSnap = await mockFakeDb.collection('users').doc(userId).get();
+    expect(userSnap.data().xp).toBe(20);
+
+    const aiSnap = await mockFakeDb.collection('aiCache').doc(userId).get();
+    expect(aiSnap.data().challenges[0].status).toBe('completed');
+  });
+
+  test('throws 409 when toggling a subtask on an already-completed suggestion', async () => {
+    const { toggleSubtask } = require('../services/ai.service');
+    const userId = 'user-20';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 20 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{
+        title: 'Test', description: 'Do it', xpReward: 20, status: 'completed',
+        subtasks: [{ title: 'A', completed: true }],
+      }],
+    });
+
+    await expect(toggleSubtask(userId, 0, 0)).rejects.toMatchObject({ status: 409 });
+  });
+
+  test('throws 404 for an out-of-range subIndex', async () => {
+    const { toggleSubtask } = require('../services/ai.service');
+    const userId = 'user-21';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 0 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{
+        title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted',
+        subtasks: [{ title: 'A', completed: false }],
+      }],
+    });
+
+    await expect(toggleSubtask(userId, 0, 5)).rejects.toMatchObject({ status: 404 });
   });
 });

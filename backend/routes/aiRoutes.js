@@ -1,7 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
 const router = express.Router();
-const { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion } = require('../services/ai.service');
+const { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion, generateSubtasks, toggleSubtask } = require('../services/ai.service');
 const { getMemory, updateMemory, generateWeeklySummary } = require('../services/aiMemory.service');
 const { generateSystemEvents, markEventsSeen, triggerNarrativeEvent } = require('../services/aiEvents.service');
 const { authenticate } = require('../middleware/authenticate');
@@ -65,6 +65,27 @@ router.patch('/challenges/:index/complete', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'index must be a non-negative integer' });
   }
   const result = await completeAISuggestion(req.userId, index);
+  res.json(result);
+}));
+
+// POST /api/ai/challenges/:index/subtasks
+router.post('/challenges/:index/subtasks', asyncHandler(async (req, res) => {
+  const index = Number(req.params.index);
+  if (!Number.isInteger(index) || index < 0) {
+    return res.status(400).json({ error: 'index must be a non-negative integer' });
+  }
+  const subtasks = await generateSubtasks(req.userId, index);
+  res.json({ subtasks });
+}));
+
+// PATCH /api/ai/challenges/:index/subtasks/:subIndex/toggle
+router.patch('/challenges/:index/subtasks/:subIndex/toggle', asyncHandler(async (req, res) => {
+  const index = Number(req.params.index);
+  const subIndex = Number(req.params.subIndex);
+  if (!Number.isInteger(index) || index < 0 || !Number.isInteger(subIndex) || subIndex < 0) {
+    return res.status(400).json({ error: 'index and subIndex must be non-negative integers' });
+  }
+  const result = await toggleSubtask(req.userId, index, subIndex);
   res.json(result);
 }));
 

@@ -17,6 +17,11 @@ const DEFAULT_CHALLENGES = [
     xpReward: 25,
   },
 ];
+const DEFAULT_SUBTASKS = [
+  'Initiate the protocol immediately.',
+  'Execute without interruption.',
+  'Log completion status.',
+];
 
 // ─── Cache (one document per user, refreshed daily) ───────────────────────────
 
@@ -161,6 +166,20 @@ Constraints:
 - If historical patterns are available, target the highest-miss protocol or lowest output day`;
 }
 
+function buildSubtasksPrompt(challenge) {
+  return `${VOICE_INSTRUCTION}
+
+Protocol: ${challenge.title}
+Directive: ${challenge.description}
+
+Break this protocol into 3 to 5 concrete, sequential action steps as a JSON array of strings. Return ONLY the JSON array, no explanation, no markdown:
+["step one", "step two", "step three"]
+
+Constraints:
+- Each step: one short imperative sentence, approved vocabulary, no punctuation beyond a period
+- Steps must be concrete actions the hunter physically does, not restatements of the goal`;
+}
+
 // ─── JSON parse helper ────────────────────────────────────────────────────────
 
 function parseChallengesJSON(text) {
@@ -173,6 +192,14 @@ function parseChallengesJSON(text) {
     description: String(c.description || '').trim(),
     xpReward: Math.max(15, Math.min(35, Number(c.xpReward) || 20)),
   }));
+}
+
+function parseSubtasksJSON(text) {
+  const match = text.match(/\[[\s\S]*?\]/);
+  if (!match) return null;
+  const parsed = JSON.parse(match[0]);
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  return parsed.slice(0, 5).map((title) => ({ title: String(title).trim(), completed: false }));
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -240,6 +267,13 @@ async function acceptChallenge(userId, index) {
       return { status };
     }
 
+    const alreadySelected = data.challenges.some(
+      (c, i) => i !== index && (c.status ?? 'suggested') !== 'suggested'
+    );
+    if (alreadySelected) {
+      throw new AppError('Another suggestion has already been selected today', 409);
+    }
+
     const updatedChallenges = data.challenges.map((c, i) =>
       i === index ? { ...c, status: 'accepted' } : c
     );
@@ -297,4 +331,109 @@ async function completeAISuggestion(userId, index) {
   return result;
 }
 
-module.exports = { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion };
+/**
+ * Generates and persists a 3-5 item action checklist for an accepted
+ * suggestion. Idempotent: if subtasks already exist for this index, returns
+ * them without calling the AI again. The AI call runs outside any
+ * transaction (external I/O shouldn't run inside a retryable transaction
+ * body); a narrow follow-up transaction re-checks the suggestion is still
+ * 'accepted' before writing, so a suggestion that changed state while the
+ * AI call was in flight doesn't get corrupted.
+ */
+async function generateSubtasks(userId, index) {
+  const aiRef = db.collection('aiCache').doc(userId);
+  const snap = await aiRef.get();
+  if (!snap.exists) throw new AppError('Suggestions not found', 404);
+
+  const data = snap.data();
+  if (data.date !== todayStr()) throw new AppError('Suggestions not found', 404);
+
+  const challenge = data.challenges?.[index];
+  if (!challenge) throw new AppError('Suggestion not found', 404);
+  if (challenge.status !== 'accepted') {
+    throw new AppError('Suggestion must be accepted before generating a checklist', 409);
+  }
+  if (challenge.subtasks) return challenge.subtasks;
+
+  const prompt = buildSubtasksPrompt(challenge);
+  const raw = await callAI(prompt, JSON.stringify(DEFAULT_SUBTASKS));
+
+  let subtasks;
+  try {
+    subtasks = parseSubtasksJSON(raw);
+    if (!subtasks) throw new Error('Empty parse');
+  } catch {
+    logger.error('[AI] Subtask parse failed, using default');
+    subtasks = DEFAULT_SUBTASKS.map((title) => ({ title, completed: false }));
+  }
+
+  await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(aiRef);
+    const freshData = freshSnap.data();
+    if (freshData.date !== todayStr() || freshData.challenges?.[index]?.status !== 'accepted') return;
+    const updated = freshData.challenges.map((c, i) => (i === index ? { ...c, subtasks } : c));
+    tx.update(aiRef, { challenges: updated });
+  });
+
+  return subtasks;
+}
+
+/**
+ * Toggles one subtask's completed flag. If this toggle results in every
+ * subtask being complete, auto-completes the suggestion and awards its XP
+ * in the same transaction (mirrors completeAISuggestion's transaction
+ * shape) — no separate manual "complete" step in the normal flow.
+ */
+async function toggleSubtask(userId, index, subIndex) {
+  const aiRef = db.collection('aiCache').doc(userId);
+  const userRef = db.collection('users').doc(userId);
+
+  const result = await db.runTransaction(async (tx) => {
+    const [aiSnap, userSnap] = await Promise.all([tx.get(aiRef), tx.get(userRef)]);
+    if (!aiSnap.exists) throw new AppError('Suggestions not found', 404);
+    if (!userSnap.exists) throw new AppError('User not found', 404);
+
+    const data = aiSnap.data();
+    if (data.date !== todayStr()) throw new AppError('Suggestions not found', 404);
+
+    const challenge = data.challenges?.[index];
+    if (!challenge) throw new AppError('Suggestion not found', 404);
+    if (challenge.status === 'completed') {
+      throw new AppError('Suggestion already completed', 409);
+    }
+    if (challenge.status !== 'accepted' || !challenge.subtasks?.[subIndex]) {
+      throw new AppError('Subtask not found', 404);
+    }
+
+    const updatedSubtasks = challenge.subtasks.map((s, i) =>
+      i === subIndex ? { ...s, completed: !s.completed } : s
+    );
+    const allComplete = updatedSubtasks.every((s) => s.completed);
+
+    if (!allComplete) {
+      const updatedChallenges = data.challenges.map((c, i) =>
+        i === index ? { ...c, subtasks: updatedSubtasks } : c
+      );
+      tx.update(aiRef, { challenges: updatedChallenges });
+      return { subtasks: updatedSubtasks, completed: false };
+    }
+
+    const { updates, result: xpResult } = computeXpGain(userSnap.data(), challenge.xpReward);
+    const updatedChallenges = data.challenges.map((c, i) =>
+      i === index ? { ...c, subtasks: updatedSubtasks, status: 'completed' } : c
+    );
+    tx.update(aiRef, { challenges: updatedChallenges });
+    tx.update(userRef, updates);
+
+    return { subtasks: updatedSubtasks, completed: true, xp: xpResult };
+  });
+
+  if (result.completed) {
+    evaluateTitles(userId).catch((e) => logger.error({ err: e, userId }, 'Title evaluation failed'));
+    updateUserRank(userId).catch((e) => logger.error({ err: e, userId }, 'Rank update failed'));
+  }
+
+  return result;
+}
+
+module.exports = { generateInsight, generateChallenges, acceptChallenge, completeAISuggestion, generateSubtasks, toggleSubtask };

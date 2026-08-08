@@ -12,6 +12,14 @@ const generateSubtasks = vi.fn().mockResolvedValue({
 });
 const toggleSubtask = vi.fn();
 const completeAISuggestion = vi.fn().mockResolvedValue({ completed: true, xp: { xp: 20, level: 1, xpGained: 20, leveledUp: false, previousLevel: 1 } });
+const fetchAIChallenges = vi.fn();
+
+const DEFAULT_SUGGESTIONS = {
+  challenges: [
+    { title: 'Daily Focus Protocol', description: 'Maintain focus sessions.', xpReward: 25, status: 'suggested' },
+    { title: 'Optimize Sleep Cycle', description: 'Adjust bedtime routine.', xpReward: 20, status: 'suggested' },
+  ],
+};
 
 const firebaseUser = { uid: 'u1' };
 
@@ -30,12 +38,7 @@ vi.mock('@/context/AuthContext', () => ({
 }));
 
 vi.mock('@/lib/api', () => ({
-  fetchAIChallenges: vi.fn().mockResolvedValue({
-    challenges: [
-      { title: 'Daily Focus Protocol', description: 'Maintain focus sessions.', xpReward: 25, status: 'suggested' },
-      { title: 'Optimize Sleep Cycle', description: 'Adjust bedtime routine.', xpReward: 20, status: 'suggested' },
-    ],
-  }),
+  fetchAIChallenges: (...args: unknown[]) => fetchAIChallenges(...args),
   acceptAISuggestion: (...args: unknown[]) => acceptAISuggestion(...args),
   generateSubtasks: (...args: unknown[]) => generateSubtasks(...args),
   toggleSubtask: (...args: unknown[]) => toggleSubtask(...args),
@@ -46,9 +49,18 @@ describe('ChallengeSection — AI suggestion cards', () => {
   beforeEach(() => {
     refreshProfile.mockClear();
     acceptAISuggestion.mockClear();
+    acceptAISuggestion.mockResolvedValue({ status: 'accepted' });
     generateSubtasks.mockClear();
+    generateSubtasks.mockResolvedValue({
+      subtasks: [
+        { title: 'Step one', completed: false },
+        { title: 'Step two', completed: false },
+      ],
+    });
     toggleSubtask.mockReset();
     completeAISuggestion.mockClear();
+    fetchAIChallenges.mockReset();
+    fetchAIChallenges.mockResolvedValue(DEFAULT_SUGGESTIONS);
   });
 
   it('locks out the other suggestion once one is accepted', async () => {
@@ -114,5 +126,62 @@ describe('ChallengeSection — AI suggestion cards', () => {
 
     await screen.findByRole('button', { name: 'Step one' });
     expect(generateSubtasks).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a generate-checklist button for a suggestion that mounts already accepted with no subtasks (page reload / legacy data), and generates on tap', async () => {
+    fetchAIChallenges.mockResolvedValueOnce({
+      challenges: [
+        { title: 'Daily Focus Protocol', description: 'Maintain focus sessions.', xpReward: 25, status: 'accepted' },
+        { title: 'Optimize Sleep Cycle', description: 'Adjust bedtime routine.', xpReward: 20, status: 'suggested' },
+      ],
+    });
+
+    render(<ChallengeSection />);
+
+    const generateButton = await screen.findByRole('button', { name: /tap to generate checklist/i });
+    fireEvent.click(generateButton);
+
+    await screen.findByRole('button', { name: 'Step one' });
+    expect(generateSubtasks).toHaveBeenCalledWith(0);
+  });
+
+  it('recovers from a 409 on accept (e.g. another tab already selected a suggestion) by refetching', async () => {
+    render(<ChallengeSection />);
+
+    const firstCard = await screen.findByRole('button', { name: /Daily Focus Protocol/i });
+
+    // Queue the rejection + the refetch response only after the initial
+    // mount fetch has already consumed the default mock value, so the
+    // "once" refetch response lands on the second fetchAIChallenges call.
+    acceptAISuggestion.mockRejectedValueOnce(Object.assign(new Error('conflict'), { status: 409 }));
+    fetchAIChallenges.mockResolvedValueOnce({
+      challenges: [
+        { title: 'Daily Focus Protocol', description: 'Maintain focus sessions.', xpReward: 25, status: 'suggested' },
+        { title: 'Optimize Sleep Cycle', description: 'Adjust bedtime routine.', xpReward: 20, status: 'accepted' },
+      ],
+    });
+
+    fireEvent.click(firstCard);
+
+    await waitFor(() => expect(fetchAIChallenges).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Daily Focus Protocol/i })).not.toBeInTheDocument();
+    });
+    expect(generateSubtasks).not.toHaveBeenCalled();
+  });
+
+  it('does not crash and allows a re-tap when toggling a subtask fails', async () => {
+    toggleSubtask.mockRejectedValueOnce(new Error('network error'));
+
+    render(<ChallengeSection />);
+
+    const firstCard = await screen.findByRole('button', { name: /Daily Focus Protocol/i });
+    fireEvent.click(firstCard);
+
+    const stepOne = await screen.findByRole('button', { name: 'Step one' });
+    fireEvent.click(stepOne);
+
+    await waitFor(() => expect(toggleSubtask).toHaveBeenCalledWith(0, 0));
+    expect(refreshProfile).not.toHaveBeenCalled();
   });
 });

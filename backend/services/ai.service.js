@@ -310,6 +310,9 @@ async function completeAISuggestion(userId, index) {
     if (status !== 'accepted') {
       throw new AppError('Suggestion must be accepted before it can be completed', 409);
     }
+    if (challenge.subtasks?.length) {
+      throw new AppError('Complete the checklist to finish this suggestion', 409);
+    }
 
     const updatedChallenges = data.challenges.map((c, i) =>
       i === index ? { ...c, status: 'completed' } : c

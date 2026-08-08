@@ -25,11 +25,16 @@ export default function ChallengeSection() {
   const { firebaseUser } = useAuth();
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
 
-  useEffect(() => {
-    if (!firebaseUser) return;
+  function refetchAISuggestions() {
     fetchAIChallenges()
       .then((r) => setAiSuggestions(r.challenges))
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+    refetchAISuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser]);
 
   function markAccepted(index: number) {
@@ -154,6 +159,7 @@ export default function ChallengeSection() {
                     onSubtasksGenerated={markSubtasks}
                     onSubtaskToggled={markSubtasks}
                     onCompleted={markCompleted}
+                    onRefetchNeeded={refetchAISuggestions}
                   />
                 );
               })}
@@ -251,6 +257,7 @@ function SuggestionCard({
   onSubtasksGenerated,
   onSubtaskToggled,
   onCompleted,
+  onRefetchNeeded,
 }: {
   suggestion: AISuggestion;
   index: number;
@@ -259,6 +266,7 @@ function SuggestionCard({
   onSubtasksGenerated: (index: number, subtasks: AISuggestion['subtasks']) => void;
   onSubtaskToggled: (index: number, subtasks: AISuggestion['subtasks']) => void;
   onCompleted: (index: number) => void;
+  onRefetchNeeded: () => void;
 }) {
   const { refreshProfile } = useAuth();
   const [generatingSubtasks, setGeneratingSubtasks] = useState(false);
@@ -269,25 +277,30 @@ function SuggestionCard({
 
   async function handleAccept() {
     if (suggestion.status !== 'suggested' || isLocked) return;
-    const res = await acceptAISuggestion(index);
+    let res;
+    try {
+      res = await acceptAISuggestion(index);
+    } catch {
+      // Most likely a 409: the single-select lockout state changed since
+      // this component last fetched (e.g. another tab accepted a
+      // suggestion first). Re-fetch so the UI reflects reality instead of
+      // sitting there looking unresponsive.
+      onRefetchNeeded();
+      return;
+    }
     if (res.status === 'completed') {
       onCompleted(index);
       return;
     }
     onAccepted(index);
-    setGeneratingSubtasks(true);
-    try {
-      const { subtasks } = await generateSubtasks(index);
-      onSubtasksGenerated(index, subtasks);
-      setSubtaskError(false);
-    } catch {
-      setSubtaskError(true);
-    } finally {
-      setGeneratingSubtasks(false);
-    }
+    await handleGenerateSubtasks();
   }
 
-  async function handleRetryGenerateSubtasks() {
+  // Generates (or retries generating) the checklist for this suggestion.
+  // Used both right after a successful accept and from the "generate/retry"
+  // button — generateSubtasks is idempotent on the backend either way, so
+  // one function serves both call sites.
+  async function handleGenerateSubtasks() {
     setSubtaskError(false);
     setGeneratingSubtasks(true);
     try {
@@ -301,7 +314,14 @@ function SuggestionCard({
   }
 
   async function handleToggleSubtask(subIndex: number) {
-    const res = await toggleSubtask(index, subIndex);
+    let res;
+    try {
+      res = await toggleSubtask(index, subIndex);
+    } catch {
+      // A failed toggle just means the checkbox doesn't visually update;
+      // the server remains the source of truth and the user can re-tap.
+      return;
+    }
     onSubtaskToggled(index, res.subtasks);
     if (res.completed) {
       onCompleted(index);
@@ -346,13 +366,13 @@ function SuggestionCard({
           </div>
         )}
 
-        {isAccepted && !generatingSubtasks && subtaskError && !hasSubtasks && (
+        {isAccepted && !generatingSubtasks && !hasSubtasks && (
           <button
             type="button"
-            onClick={handleRetryGenerateSubtasks}
+            onClick={handleGenerateSubtasks}
             className="mt-2 text-[11px] text-accent-light/80 underline"
           >
-            Checklist failed to generate — tap to retry
+            {subtaskError ? 'Checklist failed to generate — tap to retry' : 'Tap to generate checklist'}
           </button>
         )}
 

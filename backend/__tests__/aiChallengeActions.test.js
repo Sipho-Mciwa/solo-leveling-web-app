@@ -186,6 +186,26 @@ describe('completeAISuggestion', () => {
 
     await expect(completeAISuggestion(userId, 0)).rejects.toMatchObject({ status: 409 });
   });
+
+  test('throws 409 when the accepted suggestion has a non-empty checklist (must complete via checklist, not this route)', async () => {
+    const { completeAISuggestion } = require('../services/ai.service');
+    const userId = 'user-22';
+
+    await mockFakeDb.collection('users').doc(userId).set({ level: 1, xp: 0 });
+    await mockFakeDb.collection('aiCache').doc(userId).set({
+      date: todayStr(),
+      insight: null,
+      challenges: [{
+        title: 'Test', description: 'Do it', xpReward: 20, status: 'accepted',
+        subtasks: [{ title: 'A', completed: false }, { title: 'B', completed: false }],
+      }],
+    });
+
+    await expect(completeAISuggestion(userId, 0)).rejects.toMatchObject({ status: 409 });
+
+    const userSnap = await mockFakeDb.collection('users').doc(userId).get();
+    expect(userSnap.data().xp).toBe(0); // no XP bypass
+  });
 });
 
 describe('acceptChallenge — single-select invariant', () => {

@@ -27,6 +27,18 @@ Thumbs.db
 npm-debug.log*
 
 SETUP.md
+UI_CURRENT_STATE.md
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Local reference/scratch images
+images/
+
+# Abandoned/superseded plan drafts
+docs/superpowers/plans/2026-08-02-daily-quest-difficulty-rework.md
+docs/superpowers/plans/2026-08-02-fix-quest-targets-backfill.md
+docs/superpowers/plans/2026-08-02-penalty-all-quests-required.md
 
 # Subagent-driven-development scratch workspace
 .superpowers/
